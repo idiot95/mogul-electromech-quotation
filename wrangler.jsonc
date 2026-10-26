@@ -5,6 +5,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mogul-workspace",
+  "account_id": "8b5a0805bbba173253e514e0586566b4",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
   "assets": {
