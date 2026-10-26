@@ -1,0 +1,38 @@
+# Deploying to Cloudflare (staging and live)
+
+| Environment | Worker | D1 database | R2 bucket | Deploys when |
+|---|---|---|---|---|
+| Staging | `mogul-workspace-staging` | `mogul-workspace-staging` | `mogul-workspace-staging` | push to `staging` or any `claude/**` branch |
+| Live | `mogul-workspace` | `mogul-workspace-production` | `mogul-workspace-production` | push to `main` (merged pull request) |
+
+Staging and live never share data. Staging shows a yellow "STAGING · test data only" bar.
+
+## One-time setup (≈5 minutes)
+
+1. **Cloudflare account** — sign up / log in at dash.cloudflare.com (free plan).
+2. **API token** — My Profile → API Tokens → *Create Token* → template **Edit Cloudflare Workers**.
+   Add permissions: *Account · D1 · Edit*, *Account · Workers R2 Storage · Edit*. Account resources: your account.
+   (After the DNS move, also *Zone · DNS · Edit* and *Zone · Workers Routes · Edit* for mogulelectromech.com.)
+3. **R2** — open R2 in the dashboard once and accept the terms (it may ask for a card; usage stays $0 inside the free limits).
+4. **GitHub secrets** — repo → Settings → Secrets and variables → Actions → *New repository secret*:
+   - `CLOUDFLARE_API_TOKEN` — the token from step 2
+   - `CLOUDFLARE_ACCOUNT_ID` — shown on the right of the Workers & Pages overview page
+5. Re-run the latest **Test & deploy** workflow (Actions tab) or push any commit.
+
+The first run creates the D1 database and R2 bucket, applies the migrations, and deploys.
+The app is then at `https://mogul-workspace-staging.<your-subdomain>.workers.dev` (live: `https://mogul-workspace.<your-subdomain>.workers.dev`).
+
+## Custom domains
+
+Once mogulelectromech.com's DNS is on Cloudflare (see DNS-MIGRATION.md), uncomment the `routes` lines in
+`wrangler.jsonc` → `quotes-staging.mogulelectromech.com` and `quotes.mogulelectromech.com`. Cloudflare creates the
+DNS record and certificate on the next deploy.
+
+## Manual deploy from a computer
+
+```bash
+export CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=...
+node scripts/cf-provision.mjs staging
+npm run db:migrate:staging
+npm run deploy:staging
+```
