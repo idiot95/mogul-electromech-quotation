@@ -27,7 +27,7 @@ Sign-in is **off for now** (by request). Microsoft sign-in will be added as API 
 worker/            Hono API on Cloudflare Workers
   core/            settings, salesmen, customers, numbering, files
   modules/quotes/  quotations API (tables prefixed q_)
-web/src/           React app (Vite)
+web/src/           React app (Vite + Mantine UI, brand theme in theme.ts)
   core/            shell, sidebar, shared dialogs
   modules/quotes/  editor, paste preview, grid, print document, list, home widget
 shared/            paste engine (used by the browser; unit-tested)

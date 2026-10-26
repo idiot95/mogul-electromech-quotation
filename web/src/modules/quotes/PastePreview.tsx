@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { Alert, Badge, Button, Checkbox, Group, Kbd, List, Modal, NativeSelect, Paper, ScrollArea, SegmentedControl, Stack, Table, Text, Tooltip } from "@mantine/core";
+import { IconCheck, IconClipboardText, IconHash } from "@tabler/icons-react";
 import { analysePaste, type PasteInput, type ParsedItem, type Role } from "../../../../shared/paste-engine";
-import { Modal } from "../../core/Modal";
 import { qtyFmt } from "../../lib/format";
 
-const ROLES: [Role, string][] = [
-  ["sr", "Sr No"],
-  ["desc", "Description"],
-  ["append", "Add to description"],
-  ["qty", "Qty"],
-  ["unit", "Unit"],
-  ["rate", "Rate"],
-  ["ignore", "Ignore"],
+const ROLES: { value: Role; label: string }[] = [
+  { value: "sr", label: "Sr No" },
+  { value: "desc", label: "Description" },
+  { value: "append", label: "Add to description" },
+  { value: "qty", label: "Qty" },
+  { value: "unit", label: "Unit" },
+  { value: "rate", label: "Rate" },
+  { value: "ignore", label: "Ignore" },
 ];
 
 export type PasteMode = "append" | "replace" | "insert";
@@ -28,6 +29,7 @@ export function PastePreview(props: {
   const [mode, setMode] = useState<PasteMode>("append");
   const [useEnq, setUseEnq] = useState(true);
   const count = res.items.filter((i) => !i.heading).length;
+  const headings = res.items.length - count;
 
   const confirm = () => props.onConfirm(res.items, props.hasLines ? mode : "append", useEnq && props.enquiryEmpty ? res.enquiry : null);
 
@@ -45,79 +47,104 @@ export function PastePreview(props: {
   let sr = 0;
   return (
     <Modal
-      wide
-      title="Paste preview"
+      opened
       onClose={props.onCancel}
-      footer={
-        <>
-          {props.hasLines && (
-            <div className="seg" style={{ marginRight: "auto" }}>
-              <button className={mode === "append" ? "on" : ""} onClick={() => setMode("append")}>Add after existing lines</button>
-              {props.canInsert && <button className={mode === "insert" ? "on" : ""} onClick={() => setMode("insert")}>Insert at cursor</button>}
-              <button className={mode === "replace" ? "on" : ""} onClick={() => setMode("replace")}>Replace all lines</button>
-            </div>
-          )}
-          <button className="btn" onClick={props.onCancel}>Cancel</button>
-          <button className="btn p" disabled={!count} onClick={confirm}>
-            Add {count} line{count === 1 ? "" : "s"} <span className="kbd" style={{ color: "inherit", background: "transparent", borderColor: "rgba(255,255,255,.5)" }}>Enter</span>
-          </button>
-        </>
+      size="xl"
+      title={
+        <Group gap="xs">
+          <IconClipboardText size={20} />
+          <Text fw={700} ff="heading" fz="lg">Paste preview</Text>
+        </Group>
       }
     >
-      <div className="pp">
-        <div className="muted">
-          Read as: <b>{res.source}</b> · {count} line{count === 1 ? "" : "s"}
-          {res.items.some((i) => i.heading) ? ` · ${res.items.filter((i) => i.heading).length} section heading(s)` : ""}
-        </div>
+      <Stack gap="md">
+        <Group gap="xs">
+          <Badge variant="light" color="stamp">{res.source}</Badge>
+          <Badge variant="light">{count} line{count === 1 ? "" : "s"}</Badge>
+          {headings > 0 && <Badge variant="light" color="gray">{headings} section heading{headings === 1 ? "" : "s"}</Badge>}
+        </Group>
+
         {res.enquiry && props.enquiryEmpty && (
-          <label className="enq check">
-            <input type="checkbox" checked={useEnq} onChange={(e) => setUseEnq(e.target.checked)} />
-            Enquiry reference found: <b>{res.enquiry}</b> <span className="muted">· fill the Enquiry ref field</span>
-          </label>
+          <Alert color="stamp" variant="light" icon={<IconHash size={18} />} p="xs">
+            <Checkbox
+              checked={useEnq}
+              onChange={(e) => setUseEnq(e.currentTarget.checked)}
+              label={<>Enquiry reference found: <b>{res.enquiry}</b> — fill the Enquiry ref field</>}
+            />
+          </Alert>
         )}
+
         {res.cols.length > 0 && (
           <div>
-            <div className="cap" style={{ marginBottom: 6 }}>Column mapping · change any</div>
-            <div className="pp-map">
+            <Text fz="xs" tt="uppercase" fw={600} c="dimmed" ff="monospace" mb={6}>Column mapping · change any</Text>
+            <Group gap="xs" align="flex-start">
               {res.cols.map((c, i) => (
-                <label key={i} className={c.role === "ignore" ? "off" : ""} title={c.label}>
-                  <span>{c.label}</span>
-                  <select value={c.role} onChange={(e) => setOverrides({ ...overrides, [i]: e.target.value as Role })}>
-                    {ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
-                </label>
+                <Paper key={i} p={6} w={150} bg={c.role === "ignore" ? "gray.0" : "maroon.0"} style={{ borderColor: c.role === "ignore" ? undefined : "var(--mantine-color-maroon-3)" }}>
+                  <Tooltip label={c.label} openDelay={400}>
+                    <Text fz="xs" fw={700} truncate mb={4}>{c.label}</Text>
+                  </Tooltip>
+                  <NativeSelect size="xs" value={c.role} data={ROLES} onChange={(e) => setOverrides({ ...overrides, [i]: e.currentTarget.value as Role })} />
+                </Paper>
               ))}
-            </div>
+            </Group>
           </div>
         )}
-        {res.notes.length > 0 && <ul className="pp-notes">{res.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
-        <div className="pp-table">
-          <table className="tbl">
-            <thead>
-              <tr><th>Sr</th><th>Description</th><th className="r">Qty</th><th>Unit</th><th className="r">Rate</th></tr>
-            </thead>
-            <tbody>
+
+        {res.notes.length > 0 && (
+          <List size="sm" c="teal.8" spacing={2} icon={<IconCheck size={14} />}>
+            {res.notes.map((n) => <List.Item key={n}>{n}</List.Item>)}
+          </List>
+        )}
+
+        <ScrollArea.Autosize mah="45vh">
+          <Table withTableBorder striped stickyHeader fz="sm">
+            <Table.Thead>
+              <Table.Tr><Table.Th w={50}>Sr</Table.Th><Table.Th>Description</Table.Th><Table.Th ta="right" w={80}>Qty</Table.Th><Table.Th w={80}>Unit</Table.Th><Table.Th ta="right" w={90}>Rate</Table.Th></Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
               {res.items.map((it, i) =>
                 it.heading ? (
-                  <tr key={i} className="hd"><td /><td colSpan={4}>{it.desc}</td></tr>
+                  <Table.Tr key={i} bg="gray.1"><Table.Td /><Table.Td colSpan={4} fw={700} c="maroon.7">{it.desc}</Table.Td></Table.Tr>
                 ) : (
-                  <tr key={i}>
-                    <td className="num">{++sr}</td>
-                    <td>{it.desc}</td>
-                    <td className={"r num" + (it.flag ? " flag" : "")} title={it.flag ? "No quantity found — set to 1" : undefined}>{qtyFmt(it.qty)}</td>
-                    <td>{it.unit}</td>
-                    <td className="r num">{it.rate ?? <span className="muted">—</span>}</td>
-                  </tr>
+                  <Table.Tr key={i}>
+                    <Table.Td>{++sr}</Table.Td>
+                    <Table.Td style={{ whiteSpace: "pre-line" }}>{it.desc}</Table.Td>
+                    <Table.Td ta="right">
+                      {it.flag ? <Tooltip label="No quantity found — set to 1"><Text span c="orange.8" td="underline" fz="sm">{qtyFmt(it.qty)}</Text></Tooltip> : qtyFmt(it.qty)}
+                    </Table.Td>
+                    <Table.Td>{it.unit}</Table.Td>
+                    <Table.Td ta="right">{it.rate ?? <Text span c="dimmed">—</Text>}</Table.Td>
+                  </Table.Tr>
                 ),
               )}
-              {!res.items.length && <tr><td colSpan={5} className="empty">Nothing recognisable in the pasted content.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <div className="muted" style={{ fontSize: 13 }}>
-          Rates are typed in after adding. Underlined quantities weren't found in the paste and were set to 1.
-        </div>
-      </div>
+              {!res.items.length && <Table.Tr><Table.Td colSpan={5}><Text c="dimmed" ta="center" py="md">Nothing recognisable in the pasted content.</Text></Table.Td></Table.Tr>}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea.Autosize>
+
+        <Text fz="xs" c="dimmed">Rates are typed in after adding. Underlined quantities weren't found in the paste and were set to 1.</Text>
+
+        <Group justify="space-between">
+          {props.hasLines ? (
+            <SegmentedControl
+              size="xs"
+              value={mode}
+              onChange={(v) => setMode(v as PasteMode)}
+              data={[
+                { value: "append", label: "Add after existing" },
+                ...(props.canInsert ? [{ value: "insert", label: "Insert at cursor" }] : []),
+                { value: "replace", label: "Replace all lines" },
+              ]}
+            />
+          ) : <span />}
+          <Group gap="sm">
+            <Button variant="default" onClick={props.onCancel}>Cancel</Button>
+            <Button disabled={!count} onClick={confirm} rightSection={<Kbd size="xs">Enter</Kbd>}>
+              Add {count} line{count === 1 ? "" : "s"}
+            </Button>
+          </Group>
+        </Group>
+      </Stack>
     </Modal>
   );
 }

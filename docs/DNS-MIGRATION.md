@@ -44,6 +44,30 @@ Not found publicly: no SPF (`v=spf1 …`) TXT, no `autodiscover` CNAME, no DMARC
 
 Also look for these in the Wix export: DKIM (`selector1._domainkey`, `selector2._domainkey`), `_dmarc`, `_sip._tls` / `_sipfederationtls._tcp` SRV records, and any other subdomains.
 
+## Decided: both domains leave Wix as registrar
+
+Both domains will be transferred away from Wix. The risk during a transfer is DNS, not the transfer itself. Wix's nameservers (`ns8/ns9.wixdns.net`) only serve a domain Wix manages. If the domain leaves Wix while still pointing at them, email, the website and the ERP can stop resolving.
+
+To avoid that, **move DNS first, then transfer**:
+
+1. Build the full zone at the new DNS host: Cloudflare (recommended) or the new registrar's DNS. Start from the Wix export and the tables above.
+2. In Wix, switch the domain to the new nameservers.
+3. Wait 48 hours. Verify email, Teams/Intune, the website, `erp` and `erpstaging`.
+4. In Wix: unlock the domain, turn off auto-renew, and request the authorization (EPP) code.
+5. At GoDaddy or Hostinger, start the transfer. When asked about nameservers, choose **keep current nameservers**. Hostinger offers to switch to its own by default, so untick that.
+6. Approve the transfer email. It goes to the registrant address on the domain, so make sure that mailbox works. Wix can also be asked to release the domain early.
+
+The transfer completes in about 5–7 days. DNS is already off Wix, so nothing changes for users.
+
+If Wix won't let you change nameservers on a Wix-registered domain:
+- Do steps 4–5 with the zone fully built at the new host.
+- The moment the transfer completes, set the nameservers at the new registrar.
+- Expect a short window, minutes to a few hours, where some resolvers still ask Wix. Schedule it for a Friday evening (UAE weekend) and lower TTLs a day before.
+
+Transfers are blocked within 60 days of registration, a previous transfer or a registrant-contact change. Check the expiry date as well: a transfer adds one paid year.
+
+hatimcarbon.com's website is already off Wix (62.72.58.18), so it needs no rebuild. mogulelectromech.com's website **is** on Wix. Once Wix is gone that site needs a new home (Hostinger, or a simple page served from Cloudflare). Plan the rebuild before cancelling the Wix site plan.
+
 ## The safe sequence (per domain)
 
 1. **Export.** In Wix go to Domains → ⋯ → Manage DNS Records. Screenshot or copy **every** record, including TXT, SRV and CNAME.

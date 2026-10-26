@@ -1,4 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { ActionIcon, Anchor, Button, Group, Image, Modal, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Dropzone } from "@mantine/dropzone";
+import { IconCamera, IconClipboard, IconFile, IconX } from "@tabler/icons-react";
+import { modals } from "@mantine/modals";
 import { api } from "../../lib/api";
 import type { FileRow } from "../../lib/types";
 import { useApp } from "../../core/app-context";
@@ -26,8 +30,6 @@ export function Workings(props: { quoteId: number | null; readOnly?: boolean }) 
   const [files, setFiles] = useState<FileRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [view, setView] = useState<FileRow | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const boxRef = useRef<HTMLDivElement>(null);
 
   const load = () => props.quoteId && api.get<FileRow[]>(`/files?owner_type=quote&owner_id=${props.quoteId}`).then(setFiles);
   useEffect(() => {
@@ -39,9 +41,8 @@ export function Workings(props: { quoteId: number | null; readOnly?: boolean }) 
     setBusy(true);
     try {
       for (const f of list) {
-        const small = await shrink(f);
         const fd = new FormData();
-        fd.append("file", small);
+        fd.append("file", await shrink(f));
         fd.append("owner_type", "quote");
         fd.append("owner_id", String(props.quoteId));
         await api.post("/files", fd);
@@ -70,25 +71,23 @@ export function Workings(props: { quoteId: number | null; readOnly?: boolean }) 
     }
   }
 
-  async function remove(f: FileRow) {
-    if (!confirm(`Delete ${f.name}?`)) return;
-    await api.del(`/files/${f.id}`);
-    load();
-  }
-
-  if (!props.quoteId)
-    return (
-      <div className="card">
-        <h3>Workings</h3>
-        <p className="muted" style={{ fontSize: 13 }}>Save the quote first, then attach photos or screenshots of your working. Workings are never printed or emailed.</p>
-      </div>
-    );
+  const remove = (f: FileRow) =>
+    modals.openConfirmModal({
+      title: "Delete working?",
+      children: <Text fz="sm">{f.name}</Text>,
+      labels: { confirm: "Delete", cancel: "Cancel" },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        await api.del(`/files/${f.id}`);
+        load();
+      },
+    });
 
   return (
-    <div
-      className="card"
-      ref={boxRef}
+    <Paper
+      p="md"
       tabIndex={-1}
+      data-workings
       onPaste={(e) => {
         const imgs = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
         if (imgs.length) {
@@ -97,47 +96,52 @@ export function Workings(props: { quoteId: number | null; readOnly?: boolean }) 
           upload(imgs);
         }
       }}
-      onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        upload(Array.from(e.dataTransfer.files));
-      }}
     >
-      <div className="card-head">
-        <h3>Workings</h3>
-        <span className="muted" style={{ fontSize: 12 }}>internal · never printed</span>
-      </div>
-      <div className="thumbs">
-        {files.map((f) => (
-          <div className="thumb" key={f.id} title={f.name}>
-            {f.mime.startsWith("image/") ? (
-              <img src={`/api/files/${f.id}`} alt={f.name} onClick={() => setView(f)} style={{ cursor: "zoom-in" }} />
-            ) : (
-              <a href={`/api/files/${f.id}`} target="_blank" rel="noreferrer">{f.name}</a>
-            )}
-            {!props.readOnly && <button onClick={() => remove(f)} aria-label="Delete">✕</button>}
-          </div>
-        ))}
-        {!props.readOnly && (
-          <div className="thumb add" onClick={() => inputRef.current?.click()} role="button">
-            {busy ? "Uploading…" : "+ Photo / file"}
-          </div>
-        )}
-      </div>
-      {!props.readOnly && (
-        <div className="btn-row">
-          <button className="btn sm" onClick={pasteFromClipboard}>Paste screenshot</button>
-          <span className="muted" style={{ fontSize: 12 }}>On a phone, “+ Photo” opens the camera.</span>
-        </div>
+      <Group justify="space-between" mb="xs">
+        <Title order={5}>Workings</Title>
+        <Text fz="xs" c="dimmed">internal · never printed</Text>
+      </Group>
+      {!props.quoteId ? (
+        <Text fz="sm" c="dimmed">Save the quote first, then attach photos or screenshots of your working.</Text>
+      ) : (
+        <Stack gap="sm">
+          {files.length > 0 && (
+            <SimpleGrid cols={3} spacing={6}>
+              {files.map((f) => (
+                <Paper key={f.id} pos="relative" style={{ aspectRatio: "1", overflow: "hidden" }} title={f.name}>
+                  {f.mime.startsWith("image/") ? (
+                    <Image src={`/api/files/${f.id}`} alt={f.name} h="100%" fit="cover" style={{ cursor: "zoom-in" }} onClick={() => setView(f)} />
+                  ) : (
+                    <Stack align="center" justify="center" h="100%" gap={2} p={4}>
+                      <IconFile size={20} />
+                      <Anchor href={`/api/files/${f.id}`} target="_blank" fz={10} lineClamp={2} ta="center">{f.name}</Anchor>
+                    </Stack>
+                  )}
+                  {!props.readOnly && (
+                    <ActionIcon size="xs" color="dark" variant="filled" pos="absolute" top={3} right={3} onClick={() => remove(f)} aria-label="Delete">
+                      <IconX size={11} />
+                    </ActionIcon>
+                  )}
+                </Paper>
+              ))}
+            </SimpleGrid>
+          )}
+          {!props.readOnly && (
+            <>
+              <Dropzone onDrop={upload} loading={busy} maxSize={8 * 1024 * 1024} accept={["image/*", "application/pdf", ".xlsx", ".xls", ".csv"]} p="sm" radius="md">
+                <Group justify="center" gap="xs" mih={50} style={{ pointerEvents: "none" }}>
+                  <IconCamera size={22} color="var(--mantine-color-stamp-6)" />
+                  <Text fz="sm" c="dimmed">Drop or tap to add a photo / file</Text>
+                </Group>
+              </Dropzone>
+              <Button size="xs" variant="light" color="stamp" leftSection={<IconClipboard size={14} />} onClick={pasteFromClipboard}>Paste screenshot</Button>
+            </>
+          )}
+        </Stack>
       )}
-      <input ref={inputRef} type="file" hidden multiple accept="image/*,application/pdf,.xlsx,.xls,.csv"
-        onChange={(e) => { upload(Array.from(e.target.files || [])); e.target.value = ""; }} />
-      {view && (
-        <div className="lightbox" onClick={() => setView(null)}>
-          <img src={`/api/files/${view.id}`} alt={view.name} />
-        </div>
-      )}
-    </div>
+      <Modal opened={!!view} onClose={() => setView(null)} size="auto" title={view?.name} centered>
+        {view && <Image src={`/api/files/${view.id}`} alt={view.name} mah="80vh" fit="contain" />}
+      </Modal>
+    </Paper>
   );
 }

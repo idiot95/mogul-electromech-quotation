@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { Anchor, Button, Checkbox, FileButton, Group, Modal, Paper, ScrollArea, Stack, Table, Text, TextInput } from "@mantine/core";
+import { IconFileImport, IconPlus, IconSearch } from "@tabler/icons-react";
 import { api, qs } from "../lib/api";
 import type { Customer } from "../lib/types";
 import { dateFmt } from "../lib/format";
 import { CustomerForm } from "../core/CustomerForm";
 import { useApp } from "../core/app-context";
-import { Modal } from "../core/Modal";
+import { Page } from "../core/Page";
 import { readSheetFile } from "../lib/sheets";
 
 export function CustomersPage() {
@@ -15,7 +17,6 @@ export function CustomersPage() {
   const [rows, setRows] = useState<Customer[] | null>(null);
   const [edit, setEdit] = useState<Customer | null | "new">(null);
   const [importRows, setImportRows] = useState<Record<string, string>[] | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = () => api.get<Customer[]>("/customers" + qs({ q, all: showAll ? 1 : 0 })).then(setRows, (e) => toast(e.message, true));
   useEffect(() => {
@@ -23,73 +24,67 @@ export function CustomersPage() {
     return () => clearTimeout(t);
   }, [q, showAll]);
 
-  async function onFile(f: File) {
+  async function onFile(f: File | null) {
+    if (!f) return;
     try {
-      const raw = await readSheetFile(f);
-      setImportRows(mapCustomerRows(raw));
+      setImportRows(mapCustomerRows(await readSheetFile(f)));
     } catch (e) {
       toast("Could not read file: " + (e as Error).message, true);
     }
   }
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>Customers</h1>
-        <span className="sp" />
-        <button className="btn" onClick={() => fileRef.current?.click()}>Import from Excel / CSV</button>
-        <input ref={fileRef} type="file" hidden accept=".xlsx,.xls,.csv" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
-        <button className="btn p" onClick={() => setEdit("new")}>+ New customer</button>
-      </div>
-      <div className="btn-row">
-        <input placeholder="Search name, email or contact…" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 360 }} />
-        <label className="check"><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show inactive</label>
-      </div>
-      <div className="card flush">
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Customer</th>
-                <th>Contact</th>
-                <th>Payment terms</th>
-                <th>Validity</th>
-                <th>Delivery</th>
-                <th className="r">Quotes</th>
-                <th>Last quote</th>
-              </tr>
-            </thead>
-            <tbody>
+    <Page
+      title="Customers"
+      actions={
+        <>
+          <FileButton onChange={onFile} accept=".xlsx,.xls,.csv">
+            {(p) => <Button {...p} variant="default" leftSection={<IconFileImport size={16} />}>Import Excel / CSV</Button>}
+          </FileButton>
+          <Button leftSection={<IconPlus size={16} />} onClick={() => setEdit("new")}>New customer</Button>
+        </>
+      }
+    >
+      <Group>
+        <TextInput leftSection={<IconSearch size={16} />} placeholder="Search name, email or contact…" value={q} onChange={(e) => setQ(e.currentTarget.value)} w={360} maw="100%" />
+        <Checkbox label="Show inactive" checked={showAll} onChange={(e) => setShowAll(e.currentTarget.checked)} />
+      </Group>
+      <Paper p={0}>
+        <ScrollArea>
+          <Table highlightOnHover miw={900}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Customer</Table.Th>
+                <Table.Th>Contact</Table.Th>
+                <Table.Th>Payment terms</Table.Th>
+                <Table.Th>Validity</Table.Th>
+                <Table.Th>Delivery</Table.Th>
+                <Table.Th ta="right">Quotes</Table.Th>
+                <Table.Th>Last quote</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
               {rows?.map((c) => (
-                <tr key={c.id} className="click" onClick={() => setEdit(c)} style={c.active ? undefined : { opacity: 0.5 }}>
-                  <td><b>{c.name}</b></td>
-                  <td>{[c.contact_person, c.email, c.phone].filter(Boolean).join(" · ")}</td>
-                  <td>{c.payment_terms}</td>
-                  <td className="nowrap">{c.validity}</td>
-                  <td>{c.delivery_terms}</td>
-                  <td className="r num">
-                    {c.quote_count ? <Link to={`/quotes?customer_id=${c.id}`} onClick={(e) => e.stopPropagation()}>{c.quote_count}</Link> : 0}
-                  </td>
-                  <td className="nowrap">{dateFmt(c.last_quote_date)}</td>
-                </tr>
+                <Table.Tr key={c.id} onClick={() => setEdit(c)} style={{ cursor: "pointer", opacity: c.active ? 1 : 0.5 }}>
+                  <Table.Td fw={600}>{c.name}</Table.Td>
+                  <Table.Td>{[c.contact_person, c.email, c.phone].filter(Boolean).join(" · ")}</Table.Td>
+                  <Table.Td>{c.payment_terms}</Table.Td>
+                  <Table.Td>{c.validity}</Table.Td>
+                  <Table.Td>{c.delivery_terms}</Table.Td>
+                  <Table.Td ta="right">
+                    {c.quote_count ? <Anchor component={Link} to={`/quotes?customer_id=${c.id}`} onClick={(e) => e.stopPropagation()}>{c.quote_count}</Anchor> : 0}
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>{dateFmt(c.last_quote_date)}</Table.Td>
+                </Table.Tr>
               ))}
-            </tbody>
-          </table>
-          {rows && !rows.length && <div className="empty">No customers found.</div>}
-        </div>
-      </div>
-      {edit && (
-        <CustomerForm
-          customer={edit === "new" ? null : edit}
-          onClose={() => setEdit(null)}
-          onSaved={() => {
-            setEdit(null);
-            load();
-          }}
-        />
-      )}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+        {rows && !rows.length && <Text c="dimmed" ta="center" py="xl">No customers found.</Text>}
+      </Paper>
+      {edit && <CustomerForm customer={edit === "new" ? null : edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
       {importRows && <ImportDialog rows={importRows} onClose={() => setImportRows(null)} onDone={() => { setImportRows(null); load(); }} />}
-    </div>
+    </Page>
   );
 }
 
@@ -111,9 +106,7 @@ function mapCustomerRows(raw: string[][]): Record<string, string>[] {
   if (!rows.length) return [];
   const hi = rows.slice(0, 8).findIndex((r) => r.some((c) => HEADER_MAP.some(([re, k]) => k === "name" && re.test(c.trim()))));
   const header = hi >= 0 ? rows[hi] : null;
-  const keys = header
-    ? header.map((h) => HEADER_MAP.find(([re]) => re.test(h.trim()))?.[1] || "")
-    : rows[0].map((_, i) => (i === 0 ? "name" : ""));
+  const keys = header ? header.map((h) => HEADER_MAP.find(([re]) => re.test(h.trim()))?.[1] || "") : rows[0].map((_, i) => (i === 0 ? "name" : ""));
   const out: Record<string, string>[] = [];
   for (const r of rows.slice(hi + 1)) {
     const o: Record<string, string> = {};
@@ -142,31 +135,27 @@ function ImportDialog(props: { rows: Record<string, string>[]; onClose: () => vo
   }
   const cols = ["name", "address", "contact_person", "email", "phone", "trn", "payment_terms", "validity", "delivery_terms"];
   return (
-    <Modal
-      wide
-      title={`Import ${props.rows.length} customers`}
-      onClose={props.onClose}
-      footer={
-        <>
-          <button className="btn" onClick={props.onClose}>Cancel</button>
-          <button className="btn p" disabled={busy || !props.rows.length} onClick={run}>Import</button>
-        </>
-      }
-    >
-      <p className="muted">
-        Columns are matched by header name (Name / Customer / Ledger, Address, Contact, Email, Phone, TRN, Payment, Validity, Delivery).
-        Customers whose name already exists are skipped. Blank terms fall back to the company defaults when quoting.
-      </p>
-      <div className="pp-table">
-        <table className="tbl">
-          <thead><tr>{cols.map((c) => <th key={c}>{c.replace("_", " ")}</th>)}</tr></thead>
-          <tbody>
-            {props.rows.slice(0, 200).map((r, i) => (
-              <tr key={i}>{cols.map((c) => <td key={c} style={{ whiteSpace: "pre-line" }}>{r[c]}</td>)}</tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <Modal opened onClose={props.onClose} size="90%" title={<Text fw={700} ff="heading" fz="lg">Import {props.rows.length} customers</Text>}>
+      <Stack>
+        <Text c="dimmed" fz="sm">
+          Columns are matched by header name (Name / Customer / Ledger, Address, Contact, Email, Phone, TRN, Payment, Validity, Delivery).
+          Customers whose name already exists are skipped.
+        </Text>
+        <ScrollArea h="55vh">
+          <Table striped withTableBorder fz="sm">
+            <Table.Thead><Table.Tr>{cols.map((c) => <Table.Th key={c} tt="capitalize">{c.replace("_", " ")}</Table.Th>)}</Table.Tr></Table.Thead>
+            <Table.Tbody>
+              {props.rows.slice(0, 300).map((r, i) => (
+                <Table.Tr key={i}>{cols.map((c) => <Table.Td key={c} style={{ whiteSpace: "pre-line" }}>{r[c]}</Table.Td>)}</Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={props.onClose}>Cancel</Button>
+          <Button loading={busy} disabled={!props.rows.length} onClick={run}>Import</Button>
+        </Group>
+      </Stack>
     </Modal>
   );
 }

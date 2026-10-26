@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { Anchor, Group, Paper, Progress, ScrollArea, SegmentedControl, SimpleGrid, Stack, Table, Text, ThemeIcon, Title } from "@mantine/core";
+import { IconCash, IconFileText, IconUsers } from "@tabler/icons-react";
 import { api } from "../../lib/api";
 import { money0, quoteNo } from "../../lib/format";
-import { StatusPill } from "./QuoteList";
 import type { QuoteStatus } from "../../lib/types";
+import { StatusBadge } from "./status";
 
 interface Summary {
   since: string;
@@ -14,73 +16,83 @@ interface Summary {
   bySalesman: { name: string; amount: number; quotes: number }[];
 }
 
-const PERIODS: [number, string][] = [[7, "1 week"], [28, "4 weeks"], [91, "3 months"], [365, "12 months"]];
+function Bars({ rows }: { rows: { name: string; amount: number; quotes: number }[] }) {
+  const max = Math.max(1, ...rows.map((r) => r.amount));
+  if (!rows.length) return <Text c="dimmed" fz="sm">No quotes in this period yet.</Text>;
+  return (
+    <Stack gap={10}>
+      {rows.map((r) => (
+        <div key={r.name} title={`${r.quotes} quote(s)`}>
+          <Group justify="space-between" gap="xs" wrap="nowrap" mb={3}>
+            <Text fz="sm" truncate>{r.name}</Text>
+            <Text fz="sm" ff="monospace" c="dimmed">{money0(r.amount)}</Text>
+          </Group>
+          <Progress value={(r.amount / max) * 100} size="md" radius="xl" />
+        </div>
+      ))}
+    </Stack>
+  );
+}
+
+function Kpi(props: { label: string; value: string; icon: typeof IconCash }) {
+  return (
+    <Paper p="md">
+      <Group justify="space-between" align="flex-start">
+        <div>
+          <Text fz="xs" tt="uppercase" fw={600} c="dimmed" ff="monospace">{props.label}</Text>
+          <Text fz={28} fw={800} ff="heading" mt={4}>{props.value}</Text>
+        </div>
+        <ThemeIcon variant="light" size="lg" radius="md"><props.icon size={20} /></ThemeIcon>
+      </Group>
+    </Paper>
+  );
+}
 
 export function QuotesHomeWidget() {
-  const [days, setDays] = useState(28);
+  const [days, setDays] = useState("28");
   const [s, setS] = useState<Summary | null>(null);
   useEffect(() => {
     api.get<Summary>(`/quotes/summary?days=${days}`).then(setS);
   }, [days]);
 
-  const bars = (rows: { name: string; amount: number; quotes: number }[]) => {
-    const max = Math.max(1, ...rows.map((r) => r.amount));
-    return (
-      <div className="bars">
-        {rows.map((r) => (
-          <div className="bar" key={r.name} title={`${r.name}: AED ${money0(r.amount)} · ${r.quotes} quote(s)`}>
-            <span className="bl">{r.name}</span>
-            <span className="bt"><i style={{ width: `${((r.amount / max) * 100).toFixed(1)}%` }} /></span>
-            <span className="bv num">{money0(r.amount)}</span>
-          </div>
-        ))}
-        {!rows.length && <div className="muted">No quotes in this period yet.</div>}
-      </div>
-    );
-  };
-
   return (
     <>
-      <div className="page-head">
-        <h1>Home</h1>
-        <span className="sp" />
-        <div className="seg">
-          {PERIODS.map(([d, l]) => <button key={d} className={d === days ? "on" : ""} onClick={() => setDays(d)}>{l}</button>)}
-        </div>
-      </div>
-      <div className="kpis">
-        <div className="kpi"><span className="cap">Quoted · excl. VAT</span><b className="num">AED {money0(s?.kpi.amount ?? 0)}</b></div>
-        <div className="kpi"><span className="cap">Quotes issued</span><b className="num">{s?.kpi.quotes ?? "–"}</b></div>
-        <div className="kpi"><span className="cap">Customers quoted</span><b className="num">{s?.kpi.customers ?? "–"}</b></div>
-      </div>
-      <div className="dash">
-        <div className="card">
-          <h2>By customer (AED)</h2>
-          {s && bars(s.byCustomer)}
-        </div>
-        <div className="card">
-          <h2>By salesman (AED)</h2>
-          {s && bars(s.bySalesman)}
-        </div>
-        <div className="card" style={{ gridColumn: "1 / -1" }}>
-          <div className="card-head"><h2>Largest quotes</h2><span className="sp" /><Link to="/quotes">All quotes →</Link></div>
-          <div className="tbl-wrap"><table className="tbl">
-            <thead><tr><th>No.</th><th>Customer</th><th>Salesman</th><th>Status</th><th className="r">AED (excl. VAT)</th></tr></thead>
-            <tbody>
+      <Group justify="space-between">
+        <Title order={2}>Home</Title>
+        <SegmentedControl value={days} onChange={setDays} data={[{ value: "7", label: "1 week" }, { value: "28", label: "4 weeks" }, { value: "91", label: "3 months" }, { value: "365", label: "12 months" }]} />
+      </Group>
+      <SimpleGrid cols={{ base: 1, sm: 3 }}>
+        <Kpi label="Quoted · excl. VAT" value={`AED ${money0(s?.kpi.amount ?? 0)}`} icon={IconCash} />
+        <Kpi label="Quotes issued" value={String(s?.kpi.quotes ?? "–")} icon={IconFileText} />
+        <Kpi label="Customers quoted" value={String(s?.kpi.customers ?? "–")} icon={IconUsers} />
+      </SimpleGrid>
+      <SimpleGrid cols={{ base: 1, md: 2 }}>
+        <Paper p="lg"><Title order={4} mb="md">By customer (AED)</Title>{s && <Bars rows={s.byCustomer} />}</Paper>
+        <Paper p="lg"><Title order={4} mb="md">By salesman (AED)</Title>{s && <Bars rows={s.bySalesman} />}</Paper>
+      </SimpleGrid>
+      <Paper p="lg">
+        <Group justify="space-between" mb="sm">
+          <Title order={4}>Largest quotes</Title>
+          <Anchor component={Link} to="/quotes" fz="sm">All quotes →</Anchor>
+        </Group>
+        <ScrollArea>
+          <Table highlightOnHover miw={600}>
+            <Table.Thead><Table.Tr><Table.Th>No.</Table.Th><Table.Th>Customer</Table.Th><Table.Th>Salesman</Table.Th><Table.Th>Status</Table.Th><Table.Th ta="right">AED (excl. VAT)</Table.Th></Table.Tr></Table.Thead>
+            <Table.Tbody>
               {s?.largest.map((q) => (
-                <tr key={q.id}>
-                  <td className="nowrap"><Link to={`/quotes/${q.id}`} className="mono">{quoteNo(q.base_number, q.rev)}</Link></td>
-                  <td>{q.customer_name}</td>
-                  <td>{q.salesman_name}</td>
-                  <td><StatusPill s={q.status} /></td>
-                  <td className="r num">{money0(q.subtotal)}</td>
-                </tr>
+                <Table.Tr key={q.id}>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}><Anchor component={Link} to={`/quotes/${q.id}`} ff="monospace" fz="sm">{quoteNo(q.base_number, q.rev)}</Anchor></Table.Td>
+                  <Table.Td>{q.customer_name}</Table.Td>
+                  <Table.Td>{q.salesman_name}</Table.Td>
+                  <Table.Td><StatusBadge s={q.status} /></Table.Td>
+                  <Table.Td ta="right" ff="monospace" fz="sm">{money0(q.subtotal)}</Table.Td>
+                </Table.Tr>
               ))}
-            </tbody>
-          </table></div>
-          {s && !s.largest.length && <div className="muted">Nothing yet. <Link to="/quotes/new">Create the first quote</Link>.</div>}
-        </div>
-      </div>
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+        {s && !s.largest.length && <Text c="dimmed" fz="sm">Nothing yet. <Anchor component={Link} to="/quotes/new">Create the first quote</Anchor>.</Text>}
+      </Paper>
     </>
   );
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { Alert, Badge, Button, Checkbox, Code, Divider, Group, Image, Modal, NumberInput, Paper, SimpleGrid, Stack, Switch, Table, Text, TextInput, Textarea, Title } from "@mantine/core";
+import { IconDeviceFloppy, IconInfoCircle, IconPlus } from "@tabler/icons-react";
 import { api } from "../lib/api";
 import type { CompanySettings, QuoteSettings, Salesman } from "../lib/types";
 import { useApp } from "../core/app-context";
-import { Modal } from "../core/Modal";
+import { Page } from "../core/Page";
 
 export const DEFAULT_EMAIL_TEMPLATE = `Dear Sir,
 
@@ -19,6 +21,7 @@ export function SettingsPage() {
   const [company, setCompany] = useState<CompanySettings | null>(null);
   const [quotes, setQuotes] = useState<QuoteSettings | null>(null);
   const [editSm, setEditSm] = useState<Salesman | "new" | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -27,9 +30,10 @@ export function SettingsPage() {
     }
   }, [settings]);
 
-  if (!company || !quotes) return <div className="page" />;
+  if (!company || !quotes) return null;
 
   async function save() {
+    setSaving(true);
     try {
       await api.put("/settings/company", company);
       await api.put("/settings/quotes", { ...quotes, vatRate: Number(quotes!.vatRate) || 0 });
@@ -37,88 +41,93 @@ export function SettingsPage() {
       toast("Settings saved");
     } catch (e) {
       toast((e as Error).message, true);
+    } finally {
+      setSaving(false);
     }
   }
 
-  const c = (k: keyof CompanySettings) => (e: { target: { value: string } }) => setCompany({ ...company, [k]: e.target.value });
-  const q = (k: keyof QuoteSettings) => (e: { target: { value: string } }) => setQuotes({ ...quotes, [k]: e.target.value });
+  const c = (k: keyof CompanySettings) => ({ value: company[k], onChange: (e: { currentTarget: { value: string } }) => setCompany({ ...company, [k]: e.currentTarget.value }) });
+  const q = (k: keyof QuoteSettings) => ({ value: String(quotes[k] ?? ""), onChange: (e: { currentTarget: { value: string } }) => setQuotes({ ...quotes, [k]: e.currentTarget.value }) });
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>Settings</h1>
-        <span className="sp" />
-        <button className="btn p" onClick={save}>Save settings</button>
-      </div>
+    <Page title="Settings" actions={<Button leftSection={<IconDeviceFloppy size={16} />} loading={saving} onClick={save}>Save settings</Button>}>
+      <Paper p="lg">
+        <Stack gap="sm">
+          <Title order={4}>Company · letterhead</Title>
+          <Text c="dimmed" fz="sm">Printed on every document.</Text>
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+            <TextInput label="Company name" {...c("name")} />
+            <TextInput label="TRN" {...c("trn")} />
+            <TextInput label="Email" {...c("email")} />
+            <TextInput label="Telephone" {...c("phone")} />
+            <TextInput label="Fax" {...c("fax")} />
+          </SimpleGrid>
+          <Textarea label="Address" autosize minRows={2} {...c("address")} />
+          <Group gap="lg" mt="xs">
+            <Paper p={6} withBorder><Image src="/logo.jpg" alt="Logo" h={48} w="auto" /></Paper>
+            <Image src="/stamp.jpg" alt="Stamp" h={64} w="auto" />
+          </Group>
+        </Stack>
+      </Paper>
 
-      <div className="card">
-        <h2>Company · letterhead</h2>
-        <p className="muted">Printed on every document. Logo and stamp are the files in <span className="mono">web/public</span>.</p>
-        <div className="grid2">
-          <label className="f"><span>Company name</span><input value={company.name} onChange={c("name")} /></label>
-          <label className="f"><span>TRN</span><input value={company.trn} onChange={c("trn")} /></label>
-          <label className="f"><span>Telephone</span><input value={company.phone} onChange={c("phone")} /></label>
-          <label className="f"><span>Fax</span><input value={company.fax} onChange={c("fax")} /></label>
-          <label className="f"><span>Email</span><input value={company.email} onChange={c("email")} /></label>
-        </div>
-        <label className="f"><span>Address</span><textarea rows={2} value={company.address} onChange={c("address")} /></label>
-        <div className="btn-row">
-          <img src="/logo.jpg" alt="Logo" style={{ height: 48, background: "#fff", padding: 4, border: "1px solid var(--line)" }} />
-          <img src="/stamp.jpg" alt="Stamp" style={{ height: 64 }} />
-        </div>
-      </div>
+      <Paper p="lg">
+        <Stack gap="sm">
+          <Title order={4}>Quotations</Title>
+          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+            <TextInput label="Number prefix" {...q("series")} />
+            <NumberInput label="VAT %" value={quotes.vatRate} min={0} max={100} decimalScale={2} onChange={(v) => setQuotes({ ...quotes, vatRate: Number(v) || 0 })} />
+            <TextInput label="Currency" {...q("currency")} />
+            <TextInput label="Default unit" {...q("defaultUnit")} />
+          </SimpleGrid>
+          <Text c="dimmed" fz="sm">
+            Numbers run <Code>{quotes.series}-YY-001</Code>, <Code>{quotes.series}-YY-002</Code> … and restart each year. Revisions keep the number and add REV 01, REV 02.
+          </Text>
+          <Divider label="Default terms for new customers" labelPosition="left" />
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+            <TextInput label="Payment terms" {...q("paymentTerms")} />
+            <TextInput label="Quote validity" {...q("validity")} />
+            <TextInput label="Delivery terms" {...q("deliveryTerms")} />
+            <TextInput label="VAT terms" {...q("vatTerms")} />
+          </SimpleGrid>
+          <TextInput label="Footer note on the document" {...q("footerNote")} />
+          <Switch
+            mt="xs"
+            label="Show VAT amount and grand total on the document"
+            description='Off: subtotal and the "VAT 5% extra" line only'
+            checked={quotes.showVatAmount}
+            onChange={(e) => setQuotes({ ...quotes, showVatAmount: e.currentTarget.checked })}
+          />
+        </Stack>
+      </Paper>
 
-      <div className="card">
-        <h2>Quotations</h2>
-        <div className="grid3">
-          <label className="f"><span>Number prefix</span><input value={quotes.series} onChange={q("series")} /></label>
-          <label className="f"><span>VAT %</span><input inputMode="decimal" value={String(quotes.vatRate)} onChange={q("vatRate")} /></label>
-          <label className="f"><span>Currency</span><input value={quotes.currency} onChange={q("currency")} /></label>
-          <label className="f"><span>Default unit</span><input value={quotes.defaultUnit} onChange={q("defaultUnit")} /></label>
-        </div>
-        <p className="muted">Numbers run {quotes.series}-YY-001, {quotes.series}-YY-002 … and restart each year. Revisions keep the number and add REV 01, REV 02.</p>
-        <div className="cap">Default terms for new customers</div>
-        <div className="grid2">
-          <label className="f"><span>Payment terms</span><input value={quotes.paymentTerms} onChange={q("paymentTerms")} /></label>
-          <label className="f"><span>Quote validity</span><input value={quotes.validity} onChange={q("validity")} /></label>
-          <label className="f"><span>Delivery terms</span><input value={quotes.deliveryTerms} onChange={q("deliveryTerms")} /></label>
-          <label className="f"><span>VAT terms</span><input value={quotes.vatTerms} onChange={q("vatTerms")} /></label>
-        </div>
-        <label className="f"><span>Footer note on the document</span><input value={quotes.footerNote} onChange={q("footerNote")} /></label>
-        <label className="check">
-          <input type="checkbox" checked={quotes.showVatAmount} onChange={(e) => setQuotes({ ...quotes, showVatAmount: e.target.checked })} />
-          Show VAT amount and grand total on the document (unticked: subtotal + "VAT 5% extra" line only)
-        </label>
-      </div>
+      <Paper p="lg">
+        <Stack gap="sm">
+          <Group justify="space-between">
+            <Title order={4}>Salesmen</Title>
+            <Button size="xs" variant="light" leftSection={<IconPlus size={14} />} onClick={() => setEditSm("new")}>Add salesman</Button>
+          </Group>
+          <Table highlightOnHover>
+            <Table.Thead><Table.Tr><Table.Th>Name</Table.Th><Table.Th>Email</Table.Th><Table.Th>Phone</Table.Th><Table.Th>Status</Table.Th></Table.Tr></Table.Thead>
+            <Table.Tbody>
+              {salesmen.map((s) => (
+                <Table.Tr key={s.id} onClick={() => setEditSm(s)} style={{ cursor: "pointer" }}>
+                  <Table.Td fw={600}>{s.name}</Table.Td>
+                  <Table.Td>{s.email}</Table.Td>
+                  <Table.Td>{s.phone}</Table.Td>
+                  <Table.Td><Badge variant="light" color={s.active ? "teal" : "gray"}>{s.active ? "Active" : "Inactive"}</Badge></Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Stack>
+      </Paper>
 
-      <div className="card">
-        <div className="card-head">
-          <h2>Salesmen</h2>
-          <span className="sp" />
-          <button className="btn sm" onClick={() => setEditSm("new")}>+ Add salesman</button>
-        </div>
-        <table className="tbl">
-          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th></tr></thead>
-          <tbody>
-            {salesmen.map((s) => (
-              <tr key={s.id} className="click" onClick={() => setEditSm(s)} style={s.active ? undefined : { opacity: 0.5 }}>
-                <td><b>{s.name}</b></td>
-                <td>{s.email}</td>
-                <td>{s.phone}</td>
-                <td>{s.active ? "Active" : "Inactive"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card">
-        <h2>Sign-in</h2>
-        <p className="muted">Sign-in is switched off for now. Anyone with the link can use this workspace. Microsoft sign-in (company accounts only) and sending through Outlook will be added in the next step.</p>
-      </div>
+      <Alert icon={<IconInfoCircle />} title="Sign-in" color="stamp" variant="light">
+        Sign-in is switched off for now — anyone with the link can use this workspace. Microsoft sign-in (company accounts only) and sending through Outlook come next.
+      </Alert>
 
       {editSm && <SalesmanForm s={editSm === "new" ? null : editSm} onClose={() => setEditSm(null)} onSaved={async () => { setEditSm(null); await reload(); }} />}
-    </div>
+    </Page>
   );
 }
 
@@ -135,35 +144,27 @@ function SalesmanForm(props: { s: Salesman | null; onClose: () => void; onSaved:
       toast((e as Error).message, true);
     }
   }
-  const set = (k: keyof Salesman) => (e: { target: { value: string } }) => setD({ ...d, [k]: e.target.value });
+  const f = (k: keyof Salesman) => ({ value: String(d[k] ?? ""), onChange: (e: { currentTarget: { value: string } }) => setD({ ...d, [k]: e.currentTarget.value }) });
   return (
-    <Modal
-      title={props.s ? "Edit salesman" : "New salesman"}
-      onClose={props.onClose}
-      footer={
-        <>
-          {props.s && (
-            <label className="check" style={{ marginRight: "auto" }}>
-              <input type="checkbox" checked={d.active !== 0} onChange={(e) => setD({ ...d, active: e.target.checked ? 1 : 0 })} /> Active
-            </label>
-          )}
-          <button className="btn" onClick={props.onClose}>Cancel</button>
-          <button className="btn p" onClick={save}>Save</button>
-        </>
-      }
-    >
-      <div className="grid2">
-        <label className="f"><span>Name *</span><input autoFocus value={d.name || ""} onChange={set("name")} /></label>
-        <label className="f"><span>Email</span><input value={d.email || ""} onChange={set("email")} /></label>
-        <label className="f"><span>Phone</span><input value={d.phone || ""} onChange={set("phone")} /></label>
-      </div>
-      <label className="f">
-        <span>Email template</span>
-        <textarea rows={9} value={d.email_template ?? DEFAULT_EMAIL_TEMPLATE} onChange={set("email_template")} />
-      </label>
-      <p className="muted" style={{ fontSize: 13 }}>
-        Placeholders: <span className="mono">{"{quote_no} {enquiry_ref} {customer} {salesman} {company} {company_phone} {total}"}</span>
-      </p>
+    <Modal opened onClose={props.onClose} size="lg" title={<Text fw={700} ff="heading" fz="lg">{props.s ? "Edit salesman" : "New salesman"}</Text>}>
+      <Stack gap="sm">
+        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+          <TextInput label="Name" required data-autofocus {...f("name")} />
+          <TextInput label="Email" {...f("email")} />
+          <TextInput label="Phone" {...f("phone")} />
+        </SimpleGrid>
+        <Textarea label="Email template" autosize minRows={8} value={d.email_template ?? DEFAULT_EMAIL_TEMPLATE} onChange={(e) => setD({ ...d, email_template: e.currentTarget.value })} />
+        <Text fz="xs" c="dimmed">
+          Placeholders: <Code>{"{quote_no} {enquiry_ref} {customer} {salesman} {company} {company_phone} {total}"}</Code>
+        </Text>
+        <Group justify="space-between" mt="sm">
+          {props.s ? <Checkbox label="Active" checked={d.active !== 0} onChange={(e) => setD({ ...d, active: e.currentTarget.checked ? 1 : 0 })} /> : <span />}
+          <Group gap="sm">
+            <Button variant="default" onClick={props.onClose}>Cancel</Button>
+            <Button onClick={save}>Save</Button>
+          </Group>
+        </Group>
+      </Stack>
     </Modal>
   );
 }

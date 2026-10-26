@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
+import { ActionIcon, Button, Group, Kbd, Menu, Text } from "@mantine/core";
+import { IconArrowBackUp, IconArrowDown, IconArrowUp, IconCopy, IconDotsVertical, IconGripVertical, IconHeading, IconPlus, IconRowInsertBottom, IconRowInsertTop, IconTrash } from "@tabler/icons-react";
 import { money } from "../../lib/format";
 import { blankLine, headingLine, lineAmount, newKey, parseNum, type EditLine } from "./lines";
 import { parseNumberColumn, type PasteInput } from "../../../../shared/paste-engine";
@@ -25,7 +27,6 @@ export function LineGrid(props: {
 }) {
   const { lines, readOnly } = props;
   const tableRef = useRef<HTMLTableElement>(null);
-  const [menu, setMenu] = useState<{ row: number; x: number; y: number } | null>(null);
   const [drag, setDrag] = useState<{ from: number; over: number | null } | null>(null);
   const [dropping, setDropping] = useState(false);
   const pendingFocus = useRef<{ row: number; col: Col } | null>(null);
@@ -209,6 +210,7 @@ export function LineGrid(props: {
                   onDragEnd={() => setDrag(null)}
                   title={readOnly ? undefined : "Drag to reorder"}
                 >
+                  {!readOnly && <IconGripVertical size={12} className="grip" />}
                   {heading ? "§" : sr}
                 </td>
                 <td colSpan={heading ? 4 : 1}>
@@ -247,11 +249,31 @@ export function LineGrid(props: {
                 <td className="amt">{heading ? "" : amt == null ? "–" : money(amt)}</td>
                 <td className="act">
                   {!readOnly && (
-                    <button className="rowmenu" aria-label="Row actions"
-                      onClick={(e) => {
-                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        setMenu({ row: i, x: r.right + window.scrollX - 190, y: r.bottom + window.scrollY });
-                      }}>⋮</button>
+                    <Menu position="bottom-end" withinPortal shadow="md" width={210}>
+                      <Menu.Target>
+                        <ActionIcon variant="subtle" color="gray" className="rowmenu" aria-label="Row actions"><IconDotsVertical size={16} /></ActionIcon>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Item leftSection={<IconRowInsertTop size={15} />} onClick={() => insertAt(i)}>Insert line above</Menu.Item>
+                        <Menu.Item leftSection={<IconRowInsertBottom size={15} />} onClick={() => insertAt(i + 1)}>Insert line below</Menu.Item>
+                        <Menu.Item leftSection={<IconHeading size={15} />} onClick={() => insertAt(i, headingLine())}>Insert heading above</Menu.Item>
+                        <Menu.Item
+                          leftSection={<IconHeading size={15} />}
+                          onClick={() => {
+                            const next = lines.slice();
+                            next[i] = l.kind === "heading" ? { ...l, kind: "item", unit: props.defaultUnit } : { ...l, kind: "heading", qty: "", rate: "", unit: "" };
+                            structural(next);
+                          }}
+                        >
+                          {heading ? "Change to item line" : "Change to heading"}
+                        </Menu.Item>
+                        <Menu.Item leftSection={<IconCopy size={15} />} onClick={() => { const next = lines.slice(); next.splice(i + 1, 0, { ...l, key: newKey() }); structural(next); }}>Duplicate</Menu.Item>
+                        <Menu.Item leftSection={<IconArrowUp size={15} />} disabled={i === 0} onClick={() => move(i, i - 1)}>Move up</Menu.Item>
+                        <Menu.Item leftSection={<IconArrowDown size={15} />} disabled={i === lines.length - 1} onClick={() => move(i, i + 2)}>Move down</Menu.Item>
+                        <Menu.Divider />
+                        <Menu.Item color="red" leftSection={<IconTrash size={15} />} onClick={() => removeAt(i)}>Delete line</Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
                   )}
                 </td>
               </tr>
@@ -263,63 +285,15 @@ export function LineGrid(props: {
         {["Nos.", "Pcs", "Set", "Pair", "Mtr", "Kg", "Ltr", "Lot", "Roll", "Box", "Coil", "Length", "LS"].map((u) => <option key={u} value={u} />)}
       </datalist>
       {!readOnly && (
-        <div className="lg-foot no-print">
-          <button className="btn sm" onClick={() => insertAt(lines.length)}>+ Line</button>
-          <button className="btn sm" onClick={() => insertAt(lines.length, headingLine())}>+ Section heading</button>
-          {props.canUndo && <button className="btn sm" onClick={props.onUndo}>Undo <span className="kbd">Ctrl+Z</span></button>}
-          <span className="muted" style={{ marginLeft: "auto" }}>
-            <span className="kbd">Enter</span> next row · <span className="kbd">Shift+Enter</span> new line in description · <span className="kbd">Ctrl+D</span> fill down ·
-            drop an .xlsx/.csv here
-          </span>
-        </div>
+        <Group className="lg-foot no-print" gap="xs" px="xs" py={8}>
+          <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => insertAt(lines.length)}>Line</Button>
+          <Button size="xs" variant="default" leftSection={<IconHeading size={14} />} onClick={() => insertAt(lines.length, headingLine())}>Section heading</Button>
+          {props.canUndo && <Button size="xs" variant="subtle" leftSection={<IconArrowBackUp size={14} />} onClick={props.onUndo}>Undo</Button>}
+          <Text fz="xs" c="dimmed" ml="auto">
+            <Kbd size="xs">Enter</Kbd> next row · <Kbd size="xs">Shift</Kbd>+<Kbd size="xs">Enter</Kbd> new line in description · <Kbd size="xs">Ctrl</Kbd>+<Kbd size="xs">D</Kbd> fill down · drop .xlsx / .csv here
+          </Text>
+        </Group>
       )}
-      {menu && (
-        <RowMenu
-          x={menu.x}
-          y={menu.y}
-          onClose={() => setMenu(null)}
-          items={[
-            ["Insert line above", () => insertAt(menu.row)],
-            ["Insert line below", () => insertAt(menu.row + 1)],
-            ["Insert heading above", () => insertAt(menu.row, headingLine())],
-            [lines[menu.row]?.kind === "heading" ? "Change to item line" : "Change to heading",
-              () => {
-                const next = lines.slice();
-                const l = next[menu.row];
-                next[menu.row] = l.kind === "heading" ? { ...l, kind: "item", unit: props.defaultUnit } : { ...l, kind: "heading", qty: "", rate: "", unit: "" };
-                structural(next);
-              }],
-            ["Duplicate", () => {
-              const next = lines.slice();
-              next.splice(menu.row + 1, 0, { ...lines[menu.row], key: newKey() });
-              structural(next);
-            }],
-            ["Move up", () => move(menu.row, menu.row - 1)],
-            ["Move down", () => move(menu.row, menu.row + 2)],
-            ["Delete line", () => removeAt(menu.row)],
-          ]}
-        />
-      )}
-    </div>
-  );
-}
-
-function RowMenu(props: { x: number; y: number; items: [string, () => void][]; onClose: () => void }) {
-  useEffect(() => {
-    const close = () => props.onClose();
-    const t = setTimeout(() => window.addEventListener("click", close), 0);
-    window.addEventListener("scroll", close, true);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener("click", close);
-      window.removeEventListener("scroll", close, true);
-    };
-  }, []);
-  return (
-    <div className="menu" style={{ position: "absolute", left: Math.max(8, props.x), top: props.y }}>
-      {props.items.map(([label, fn]) => (
-        <button key={label} onClick={() => { fn(); props.onClose(); }} className={label.startsWith("Delete") ? "danger" : ""}>{label}</button>
-      ))}
     </div>
   );
 }

@@ -1,83 +1,84 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+import { Combobox, Group, InputBase, Text, useCombobox } from "@mantine/core";
+import { IconBuildingFactory2, IconPlus } from "@tabler/icons-react";
 import type { Customer } from "../../lib/types";
 
-/** Type-ahead customer dropdown with a "+ New customer" entry at the bottom. */
+/** Searchable customer drop-down with "+ New customer" at the bottom (Mantine creatable combobox). */
 export function CustomerPicker(props: {
   customers: Customer[];
   value: string;
   selectedId: number | null;
   readOnly?: boolean;
+  label?: string;
   onPick: (c: Customer) => void;
   onNew: (name: string) => void;
   onType: (name: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [hl, setHl] = useState(0);
-  const boxRef = useRef<HTMLDivElement>(null);
+  const combobox = useCombobox({ onDropdownClose: () => combobox.resetSelectedOption() });
   const q = props.value.trim().toLowerCase();
   const matches = useMemo(() => {
     const act = props.customers.filter((c) => c.active);
-    if (!q || props.selectedId) return act.slice(0, 50);
+    if (!q || props.selectedId) return act.slice(0, 60);
     const starts = act.filter((c) => c.name.toLowerCase().startsWith(q));
     const rest = act.filter((c) => !c.name.toLowerCase().startsWith(q) && c.name.toLowerCase().includes(q));
-    return [...starts, ...rest].slice(0, 50);
+    return [...starts, ...rest].slice(0, 60);
   }, [props.customers, q, props.selectedId]);
-  const total = matches.length + 1;
-
-  useEffect(() => {
-    const close = (e: MouseEvent) => !boxRef.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  function choose(i: number) {
-    setOpen(false);
-    if (i < matches.length) props.onPick(matches[i]);
-    else props.onNew(props.value.trim());
-  }
 
   return (
-    <div className="combo" ref={boxRef}>
-      <input
-        value={props.value}
-        readOnly={props.readOnly}
-        placeholder="Type to search customers…"
-        onFocus={() => !props.readOnly && setOpen(true)}
-        onChange={(e) => {
-          props.onType(e.target.value);
-          setOpen(true);
-          setHl(0);
-        }}
-        onKeyDown={(e) => {
-          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
-            setOpen(true);
-            return;
-          }
-          if (e.key === "ArrowDown") {
-            e.preventDefault();
-            setHl((h) => (h + 1) % total);
-          } else if (e.key === "ArrowUp") {
-            e.preventDefault();
-            setHl((h) => (h - 1 + total) % total);
-          } else if (e.key === "Enter" && open) {
-            e.preventDefault();
-            choose(hl);
-          } else if (e.key === "Escape") setOpen(false);
-        }}
-        aria-autocomplete="list"
-      />
-      {open && !props.readOnly && (
-        <div className="combo-list" role="listbox">
-          {matches.map((c, i) => (
-            <div key={c.id} className={i === hl ? "hl" : ""} onMouseEnter={() => setHl(i)} onMouseDown={(e) => { e.preventDefault(); choose(i); }}>
-              {c.name}
-            </div>
+    <Combobox
+      store={combobox}
+      withinPortal
+      onOptionSubmit={(val) => {
+        combobox.closeDropdown();
+        if (val === "$new") props.onNew(props.selectedId ? "" : props.value.trim());
+        else {
+          const c = props.customers.find((x) => String(x.id) === val);
+          if (c) props.onPick(c);
+        }
+      }}
+    >
+      <Combobox.Target>
+        <InputBase
+          label={props.label}
+          size="md"
+          leftSection={<IconBuildingFactory2 size={18} />}
+          rightSection={<Combobox.Chevron />}
+          rightSectionPointerEvents="none"
+          value={props.value}
+          readOnly={props.readOnly}
+          placeholder="Type to search customers…"
+          onChange={(e) => {
+            props.onType(e.currentTarget.value);
+            combobox.openDropdown();
+            combobox.updateSelectedOptionIndex();
+            combobox.selectFirstOption();
+          }}
+          onClick={() => !props.readOnly && combobox.openDropdown()}
+          onFocus={() => !props.readOnly && combobox.openDropdown()}
+          onBlur={() => combobox.closeDropdown()}
+        />
+      </Combobox.Target>
+      <Combobox.Dropdown hidden={props.readOnly}>
+        <Combobox.Options mah={300} style={{ overflowY: "auto" }}>
+          {matches.map((c) => (
+            <Combobox.Option value={String(c.id)} key={c.id} active={c.id === props.selectedId}>
+              <Text fz="sm">{c.name}</Text>
+              {(c.payment_terms || c.validity) && <Text fz="xs" c="dimmed">{[c.payment_terms, c.validity].filter(Boolean).join(" · ")}</Text>}
+            </Combobox.Option>
           ))}
-          <div className={"new" + (hl === matches.length ? " hl" : "")} onMouseEnter={() => setHl(matches.length)} onMouseDown={(e) => { e.preventDefault(); choose(matches.length); }}>
-            + New customer{props.value.trim() && !props.selectedId ? ` “${props.value.trim()}”` : ""}
-          </div>
-        </div>
-      )}
-    </div>
+          {!matches.length && <Combobox.Empty>No customer matches “{props.value}”</Combobox.Empty>}
+        </Combobox.Options>
+        <Combobox.Footer>
+          <Combobox.Options>
+            <Combobox.Option value="$new">
+              <Group gap={6} c="stamp.6">
+                <IconPlus size={14} />
+                <Text fz="sm" fw={600}>New customer{props.value.trim() && !props.selectedId ? ` “${props.value.trim()}”` : ""}</Text>
+              </Group>
+            </Combobox.Option>
+          </Combobox.Options>
+        </Combobox.Footer>
+      </Combobox.Dropdown>
+    </Combobox>
   );
 }

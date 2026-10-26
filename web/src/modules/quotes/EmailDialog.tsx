@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { Alert, Anchor, Button, Code, Group, Modal, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { IconCopy, IconMail, IconPaperclip } from "@tabler/icons-react";
 import { api } from "../../lib/api";
 import type { Quote } from "../../lib/types";
 import { money, quoteNo } from "../../lib/format";
 import { useApp } from "../../core/app-context";
-import { Modal } from "../../core/Modal";
 import { DEFAULT_EMAIL_TEMPLATE } from "../../pages/Settings";
 import { pdfFileName } from "./QuoteDocument";
 
@@ -34,39 +35,38 @@ export function EmailDialog(props: { quote: Quote; onClose: () => void; onLogged
   });
 
   async function open() {
-    const href = `mailto:${encodeURIComponent(to).replace(/%40/g, "@").replace(/%2C/g, ",")}?` +
+    const href =
+      `mailto:${to.split(",").map((s) => s.trim()).join(",")}?` +
       new URLSearchParams({ cc, subject, body: bodyText }).toString().replace(/\+/g, "%20");
     window.location.href = href;
     try {
       const updated = await api.post<Quote>(`/quotes/${q.id}/emails`, { to, cc, subject, method: "mailto", sent_by: q.salesman_name });
       props.onLogged(updated);
-      toast("Email opened in your mail app and logged on the quote");
+      toast("Email opened in Outlook and logged on the quote");
     } catch (e) {
       toast((e as Error).message, true);
     }
   }
 
   return (
-    <Modal
-      title={`Email ${no}`}
-      onClose={props.onClose}
-      footer={
-        <>
-          <button className="btn" onClick={() => navigator.clipboard.writeText(bodyText).then(() => toast("Message copied"))}>Copy message</button>
-          <button className="btn" onClick={props.onClose}>Cancel</button>
-          <button className="btn p" onClick={open} disabled={!to.trim()}>Open in Outlook</button>
-        </>
-      }
-    >
-      <div className="banner info">
-        <b>Attach the PDF:</b> first <a href="#" onClick={(e) => { e.preventDefault(); props.onPrint(); }}>print the quote</a> and choose
-        “Save as PDF” — the file is named <span className="mono">{pdfFileName(q)}.pdf</span>. Then attach it to the email that opens.
-        Picking an Outlook thread and attaching automatically arrive with Microsoft sign-in.
-      </div>
-      <label className="f"><span>To</span><input value={to} onChange={(e) => setTo(e.target.value)} placeholder="customer@example.com" /></label>
-      <label className="f"><span>Cc</span><input value={cc} onChange={(e) => setCc(e.target.value)} /></label>
-      <label className="f"><span>Subject</span><input value={subject} onChange={(e) => setSubject(e.target.value)} /></label>
-      <label className="f"><span>Message</span><textarea rows={10} value={bodyText} onChange={(e) => setBody(e.target.value)} /></label>
+    <Modal opened onClose={props.onClose} size="lg" title={<Text fw={700} ff="heading" fz="lg">Email {no}</Text>}>
+      <Stack gap="sm">
+        <Alert color="stamp" variant="light" icon={<IconPaperclip size={18} />} title="Attach the PDF">
+          <Anchor component="button" type="button" onClick={props.onPrint} fz="sm">Print the quote</Anchor> and choose “Save as PDF” — the file is named{" "}
+          <Code>{pdfFileName(q)}.pdf</Code>. Attach it to the email that opens. Picking an Outlook thread and attaching automatically arrive with Microsoft sign-in.
+        </Alert>
+        <TextInput label="To" value={to} onChange={(e) => setTo(e.currentTarget.value)} placeholder="customer@example.com" data-autofocus />
+        <TextInput label="Cc" value={cc} onChange={(e) => setCc(e.currentTarget.value)} />
+        <TextInput label="Subject" value={subject} onChange={(e) => setSubject(e.currentTarget.value)} />
+        <Textarea label="Message" autosize minRows={8} value={bodyText} onChange={(e) => setBody(e.currentTarget.value)} />
+        <Group justify="space-between" mt="xs">
+          <Button variant="subtle" leftSection={<IconCopy size={16} />} onClick={() => navigator.clipboard.writeText(bodyText).then(() => toast("Message copied"))}>Copy message</Button>
+          <Group gap="sm">
+            <Button variant="default" onClick={props.onClose}>Cancel</Button>
+            <Button color="stamp" leftSection={<IconMail size={16} />} onClick={open} disabled={!to.trim()}>Open in Outlook</Button>
+          </Group>
+        </Group>
+      </Stack>
     </Modal>
   );
 }

@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { Anchor, Button, Checkbox, Group, Paper, ScrollArea, Select, SimpleGrid, Table, Text, TextInput } from "@mantine/core";
+import { DatePickerInput } from "@mantine/dates";
+import { IconDownload, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
 import { api, qs } from "../../lib/api";
-import type { QuoteListRow, QuoteStatus } from "../../lib/types";
+import type { QuoteListRow } from "../../lib/types";
 import { dateFmt, money, quoteNo } from "../../lib/format";
 import { useApp } from "../../core/app-context";
-
-export function StatusPill({ s }: { s: QuoteStatus }) {
-  return <span className={"pill " + s}>{s}</span>;
-}
+import { Page } from "../../core/Page";
+import { RevBadge, StatusBadge } from "./status";
 
 export function QuoteList() {
   const { salesmen, toast } = useApp();
@@ -22,7 +23,7 @@ export function QuoteList() {
   const to = sp.get("to") || "";
   const allRevs = sp.get("all_revisions") === "1";
 
-  const set = (k: string, v: string) => {
+  const set = (k: string, v: string | null) => {
     const n = new URLSearchParams(sp);
     if (v) n.set(k, v);
     else n.delete(k);
@@ -54,76 +55,96 @@ export function QuoteList() {
   }
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>Quotations</h1>
-        <span className="sp" />
-        <button className="btn" onClick={exportCsv} disabled={!rows?.length}>Export CSV</button>
-        <Link className="btn p" to="/quotes/new">+ New quote</Link>
-      </div>
-      <div className="grid3" style={{ alignItems: "end" }}>
-        <label className="f" style={{ gridColumn: "span 2" }}>
-          <span>Search</span>
-          <input autoFocus placeholder="Number, customer, enquiry ref or item description" value={q} onChange={(e) => set("q", e.target.value)} />
-        </label>
-        <label className="f">
-          <span>Salesman</span>
-          <select value={salesman} onChange={(e) => set("salesman_id", e.target.value)}>
-            <option value="">All</option>
-            {salesmen.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </label>
-        <label className="f">
-          <span>Status</span>
-          <select value={status} onChange={(e) => set("status", e.target.value)}>
-            <option value="">All</option>
-            {["draft", "printed", "emailed", "cancelled"].map((s) => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
-          </select>
-        </label>
-        <label className="f"><span>From</span><input type="date" value={from} onChange={(e) => set("from", e.target.value)} /></label>
-        <label className="f"><span>To</span><input type="date" value={to} onChange={(e) => set("to", e.target.value)} /></label>
-      </div>
-      <div className="btn-row">
-        <label className="check"><input type="checkbox" checked={allRevs} onChange={(e) => set("all_revisions", e.target.checked ? "1" : "")} /> Show replaced revisions</label>
-        {customer && <button className="btn sm" onClick={() => set("customer_id", "")}>Customer filter ✕</button>}
-        <span className="muted" style={{ marginLeft: "auto" }}>
-          {rows ? `${rows.length} quote${rows.length === 1 ? "" : "s"} · AED ${money(total)} before VAT` : ""}
-        </span>
-      </div>
-      <div className="card flush">
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>No.</th>
-                <th>Date</th>
-                <th>Customer</th>
-                <th>Enquiry ref</th>
-                <th>Salesman</th>
-                <th className="r">Lines</th>
-                <th className="r">Amount (excl. VAT)</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
+    <Page
+      title="Quotations"
+      actions={
+        <>
+          <Button variant="default" leftSection={<IconDownload size={16} />} onClick={exportCsv} disabled={!rows?.length}>Export CSV</Button>
+          <Button component={Link} to="/quotes/new" leftSection={<IconPlus size={16} />}>New quote</Button>
+        </>
+      }
+    >
+      <Paper p="md">
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
+          <TextInput
+            label="Search"
+            data-autofocus
+            leftSection={<IconSearch size={16} />}
+            placeholder="Number, customer, enquiry ref, item…"
+            value={q}
+            onChange={(e) => set("q", e.currentTarget.value)}
+            style={{ gridColumn: "span 2" }}
+          />
+          <Select label="Salesman" placeholder="All" clearable value={salesman || null} onChange={(v) => set("salesman_id", v)} data={salesmen.map((s) => ({ value: String(s.id), label: s.name }))} />
+          <Select label="Status" placeholder="All" clearable value={status || null} onChange={(v) => set("status", v)}
+            data={[{ value: "draft", label: "Draft" }, { value: "printed", label: "Printed" }, { value: "emailed", label: "Emailed" }, { value: "cancelled", label: "Cancelled" }]} />
+          <DatePickerInput
+            type="range"
+            label="Date"
+            placeholder="Any date"
+            clearable
+            valueFormat="DD MMM YYYY"
+            value={[from || null, to || null]}
+            onChange={([a, b]) => {
+              const n = new URLSearchParams(sp);
+              a ? n.set("from", String(a).slice(0, 10)) : n.delete("from");
+              b ? n.set("to", String(b).slice(0, 10)) : n.delete("to");
+              setSp(n, { replace: true });
+            }}
+          />
+        </SimpleGrid>
+        <Group mt="sm" justify="space-between">
+          <Group>
+            <Checkbox label="Show replaced revisions" checked={allRevs} onChange={(e) => set("all_revisions", e.currentTarget.checked ? "1" : null)} />
+            {customer && <Button size="xs" variant="light" rightSection={<IconX size={12} />} onClick={() => set("customer_id", null)}>Customer filter</Button>}
+          </Group>
+          <Text c="dimmed" fz="sm">{rows ? `${rows.length} quote${rows.length === 1 ? "" : "s"} · AED ${money(total)} before VAT` : ""}</Text>
+        </Group>
+      </Paper>
+
+      <Paper p={0}>
+        <ScrollArea>
+          <Table highlightOnHover miw={900} verticalSpacing="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>No.</Table.Th>
+                <Table.Th>Date</Table.Th>
+                <Table.Th>Customer</Table.Th>
+                <Table.Th>Enquiry ref</Table.Th>
+                <Table.Th>Salesman</Table.Th>
+                <Table.Th ta="right">Lines</Table.Th>
+                <Table.Th ta="right">Amount (excl. VAT)</Table.Th>
+                <Table.Th>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
               {rows?.map((r) => (
-                <tr key={r.id} className="click" onClick={() => nav(`/quotes/${r.id}`)} style={r.superseded_by ? { opacity: 0.55 } : undefined}>
-                  <td className="nowrap"><b className="mono">{r.base_number}</b>{r.rev > 0 && <span className="rev">REV {String(r.rev).padStart(2, "0")}</span>}</td>
-                  <td className="nowrap">{dateFmt(r.quote_date)}</td>
-                  <td>{r.customer_name}</td>
-                  <td>{r.enquiry_ref}</td>
-                  <td>{r.salesman_name}</td>
-                  <td className="r num">{r.line_count}</td>
-                  <td className="r num">{money(r.subtotal)}</td>
-                  <td><StatusPill s={r.status} />{r.superseded_by ? <span className="muted" style={{ fontSize: 12 }}> replaced</span> : null}</td>
-                </tr>
+                <Table.Tr key={r.id} onClick={() => nav(`/quotes/${r.id}`)} style={{ cursor: "pointer", opacity: r.superseded_by ? 0.55 : 1 }}>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
+                    <Text span ff="monospace" fw={600} fz="sm">{r.base_number}</Text>
+                    <RevBadge rev={r.rev} />
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>{dateFmt(r.quote_date)}</Table.Td>
+                  <Table.Td>{r.customer_name}</Table.Td>
+                  <Table.Td>{r.enquiry_ref}</Table.Td>
+                  <Table.Td>{r.salesman_name}</Table.Td>
+                  <Table.Td ta="right">{r.line_count}</Table.Td>
+                  <Table.Td ta="right" ff="monospace" fz="sm">{money(r.subtotal)}</Table.Td>
+                  <Table.Td>
+                    <StatusBadge s={r.status} />
+                    {r.superseded_by ? <Text span c="dimmed" fz="xs" ml={6}>replaced</Text> : null}
+                  </Table.Td>
+                </Table.Tr>
               ))}
-            </tbody>
-          </table>
-          {rows && !rows.length && <div className="empty">No quotations match. <Link to="/quotes/new">Create one</Link>.</div>}
-          {!rows && <div className="empty">Loading…</div>}
-        </div>
-      </div>
-    </div>
+            </Table.Tbody>
+          </Table>
+        </ScrollArea>
+        {rows && !rows.length && (
+          <Text c="dimmed" ta="center" py="xl">
+            No quotations match. <Anchor component={Link} to="/quotes/new">Create one</Anchor>.
+          </Text>
+        )}
+      </Paper>
+    </Page>
   );
 }
