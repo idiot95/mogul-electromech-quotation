@@ -25,7 +25,7 @@ async function shrink(file: File): Promise<File> {
   }
 }
 
-export function Workings(props: { quoteId: number | null; readOnly?: boolean }) {
+export function Workings(props: { quoteId: number | null; readOnly?: boolean; version?: number }) {
   const { toast } = useApp();
   const [files, setFiles] = useState<FileRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export function Workings(props: { quoteId: number | null; readOnly?: boolean }) 
   const load = () => props.quoteId && api.get<FileRow[]>(`/files?owner_type=quote&owner_id=${props.quoteId}`).then(setFiles);
   useEffect(() => {
     load();
-  }, [props.quoteId]);
+  }, [props.quoteId, props.version]);
 
   async function upload(list: File[]) {
     if (!props.quoteId || !list.length) return;

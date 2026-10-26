@@ -372,6 +372,14 @@ export function LineGrid(props: {
     if (readOnly) return;
     const text = e.clipboardData.getData("text/plain");
     const html = e.clipboardData.getData("text/html");
+    const img = [...e.clipboardData.files].find((f) => f.type.startsWith("image/"));
+    if (img && !text.trim() && !inEditor) {
+      // a screenshot of an enquiry goes to the file reader (OCR)
+      e.preventDefault();
+      setEditing(null);
+      props.onFileDrop(new File([img], "enquiry-screenshot.png", { type: img.type }));
+      return;
+    }
     const clip = normClip(text);
     const isMulti = /\t|\n/.test(clip);
     if (inEditor && !isMulti) return; // single value into the cell being edited: normal paste

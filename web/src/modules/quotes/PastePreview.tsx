@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Button, Checkbox, Group, Kbd, List, Modal, NativeSelect, Paper, ScrollArea, SegmentedControl, Stack, Table, Text, Tooltip } from "@mantine/core";
-import { IconCheck, IconClipboardText, IconHash } from "@tabler/icons-react";
+import { Alert, Badge, Button, Checkbox, Flex, Group, Image, Kbd, List, Modal, NativeSelect, Paper, ScrollArea, SegmentedControl, Stack, Table, Text, Tooltip } from "@mantine/core";
+import { IconCheck, IconClipboardText, IconEye, IconHash } from "@tabler/icons-react";
 import { analysePaste, type PasteInput, type ParsedItem, type Role } from "../../../../shared/paste-engine";
 import { qtyFmt } from "../../lib/format";
 
@@ -18,6 +18,10 @@ export type PasteMode = "append" | "replace" | "insert";
 
 export function PastePreview(props: {
   input: PasteInput;
+  /** Pictures of the original (PDF pages, screenshot), shown beside the lines to compare. */
+  previews?: string[];
+  /** Read by OCR: ask for a check. */
+  ocr?: boolean;
   hasLines: boolean;
   canInsert: boolean;
   enquiryEmpty: boolean;
@@ -49,15 +53,31 @@ export function PastePreview(props: {
     <Modal
       opened
       onClose={props.onCancel}
-      size="xl"
+      size={props.previews?.length ? "min(1440px, 96vw)" : "xl"}
       title={
         <Group gap="xs">
           <IconClipboardText size={20} />
-          <Text fw={700} ff="heading" fz="lg">Paste preview</Text>
+          <Text fw={700} ff="heading" fz="lg">{props.previews?.length ? "Import preview" : "Paste preview"}</Text>
         </Group>
       }
     >
-      <Stack gap="md">
+      <Flex direction={{ base: "column", md: "row" }} gap="lg" align="flex-start">
+      {props.previews && props.previews.length > 0 && (
+        <Paper p={0} w={{ base: "100%", md: "42%" }} style={{ flexShrink: 0, overflow: "hidden" }}>
+          <Text fz="xs" tt="uppercase" fw={600} c="dimmed" ff="monospace" px="sm" py={6} bg="gray.0">Original</Text>
+          <ScrollArea.Autosize mah="72vh">
+            <Stack gap={4} p={4}>
+              {props.previews.map((src, i) => <Image key={i} src={src} alt={`Page ${i + 1}`} radius="xs" />)}
+            </Stack>
+          </ScrollArea.Autosize>
+        </Paper>
+      )}
+      <Stack gap="md" style={{ flex: 1, minWidth: 0 }} w="100%">
+        {props.ocr && (
+          <Alert color="orange" variant="light" icon={<IconEye size={18} />} p="xs">
+            Read from an image: check the descriptions and quantities against the original before adding.
+          </Alert>
+        )}
         <Group gap="xs">
           <Badge variant="light" color="stamp">{res.source}</Badge>
           <Badge variant="light">{count} line{count === 1 ? "" : "s"}</Badge>
@@ -145,6 +165,7 @@ export function PastePreview(props: {
           </Group>
         </Group>
       </Stack>
+      </Flex>
     </Modal>
   );
 }

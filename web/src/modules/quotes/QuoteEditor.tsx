@@ -5,7 +5,7 @@ import type { Customer, Quote, QuoteHeader } from "../../lib/types";
 import { dateFmt, money, quoteNo, todayUAE } from "../../lib/format";
 import { useApp } from "../../core/app-context";
 import { CustomerForm } from "../../core/CustomerForm";
-import { readSheetFile } from "../../lib/sheets";
+import { extractFile, IMPORT_ACCEPT, kindOf } from "../../lib/extract";
 import type { PasteInput } from "../../../../shared/paste-engine";
 import { LineGrid, type GridApi } from "./LineGrid";
 import { PastePreview, type PasteMode } from "./PastePreview";
@@ -15,7 +15,7 @@ import { Workings } from "./Workings";
 import { EmailDialog } from "./EmailDialog";
 import { StatusBadge } from "./status";
 import { Outcome } from "./Outcome";
-import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Kbd, Loader, NumberInput, Paper, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title, Tooltip, FileButton } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Kbd, Loader, Modal, NumberInput, Paper, Progress, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title, Tooltip, FileButton } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { modals } from "@mantine/modals";
 import { IconAlertTriangle, IconArrowLeft, IconBan, IconCopy, IconDeviceFloppy, IconFileImport, IconGitBranch, IconLock, IconMail, IconPrinter, IconRefresh, IconTrash, IconUser } from "@tabler/icons-react";
@@ -62,7 +62,11 @@ export function QuoteEditor() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!id);
   const [history, setHistory] = useState<EditLine[][]>([]);
-  const [paste, setPaste] = useState<{ input: PasteInput; row: number | null } | null>(null);
+  const [paste, setPaste] = useState<{ input: PasteInput; row: number | null; previews?: string[]; ocr?: boolean; file?: File } | null>(null);
+  const [reading, setReading] = useState<{ label: string; pct: number | null } | null>(null);
+  const [workingsVer, setWorkingsVer] = useState(0);
+  // imported originals (PDF, screenshot, email) waiting for the quote's first save to be attached as workings
+  const pendingWorkings = useRef<File[]>([]);
   const [newCust, setNewCust] = useState<string | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const gridRef = useRef<GridApi | null>(null);
@@ -167,6 +171,7 @@ export function QuoteEditor() {
     next.push(blankLine(defaultUnit));
     changeLines(next, true);
     if (enquiry) setField("enquiry_ref", enquiry);
+    if (paste?.file) keepOriginal(paste.file);
     setPaste(null);
     const firstItem = next.findIndex((l, i) => i >= firstNew && l.kind === "item");
     setTimeout(() => gridRef.current?.focusCell(firstItem >= 0 ? firstItem : firstNew, "rate"), 30);
@@ -175,12 +180,33 @@ export function QuoteEditor() {
   }
 
   async function onFile(file: File) {
+    if (!kindOf(file)) return toast(`Can't read ${file.name}. Use Excel / CSV, a PDF, a screenshot or photo, or an email (.eml / .msg).`, true);
+    setReading({ label: "Reading the file…", pct: null });
     try {
-      const rows = await readSheetFile(file);
-      setPaste({ input: { rows }, row: null });
+      const r = await extractFile(file, (label, pct) => setReading({ label, pct }));
+      setPaste({ input: r.input, row: null, previews: r.previews, ocr: r.ocr, file: kindOf(file) === "sheet" ? undefined : file });
     } catch (e) {
       toast("Could not read the file: " + (e as Error).message, true);
+    } finally {
+      setReading(null);
     }
+  }
+
+  const uploadWorking = async (quoteId: number, f: File) => {
+    const fd = new FormData();
+    fd.append("file", f);
+    fd.append("owner_type", "quote");
+    fd.append("owner_id", String(quoteId));
+    await api.post("/files", fd);
+  };
+  /** The original enquiry is kept with the quote's workings (now, or on the first save of a new quote). */
+  function keepOriginal(f: File) {
+    if (f.size > 8 * 1024 * 1024) return;
+    if (!quote) {
+      pendingWorkings.current.push(f);
+      return;
+    }
+    uploadWorking(quote.id, f).then(() => setWorkingsVer((v) => v + 1), () => toast(`Couldn't attach ${f.name} to the workings`, true));
   }
 
   // ---------- save ----------
@@ -201,6 +227,7 @@ export function QuoteEditor() {
       }
       setDirty(false);
       dirtyRef.current = false;
+      for (const f of pendingWorkings.current.splice(0)) await uploadWorking(saved.id, f).catch(() => toast(`Couldn't attach ${f.name} to the workings`, true));
       if (!quote) {
         setQuote(saved);
         toast(`Saved as ${saved.base_number}`);
@@ -235,6 +262,13 @@ export function QuoteEditor() {
       const t = e.target as HTMLElement;
       if (t.closest("input, textarea, select, [contenteditable], [data-workings], [data-line-grid], .mantine-Modal-root")) return;
       const text = e.clipboardData?.getData("text/plain") || "";
+      const img = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith("image/"));
+      if (img && !text.trim()) {
+        // a screenshot of an enquiry: read it with OCR
+        e.preventDefault();
+        onFile(new File([img], `enquiry-screenshot-${todayUAE()}.png`, { type: img.type }));
+        return;
+      }
       if (!text.trim()) return;
       const html = e.clipboardData?.getData("text/html") || "";
       e.preventDefault();
@@ -412,11 +446,11 @@ export function QuoteEditor() {
                 <Paper p="sm" className="no-print" bg="maroon.0" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-maroon-4)" }}>
                   <Group justify="space-between" gap="xs">
                     <Text fz="sm">
-                      <Text span fw={700} c="maroon.7">4 · Paste items</Text> — copy cells in Excel or a list from an email, press <Kbd size="xs">Ctrl</Kbd>+<Kbd size="xs">V</Kbd> anywhere.{" "}
+                      <Text span fw={700} c="maroon.7">4 · Paste items</Text> — copy cells from Excel or an email, or a screenshot (<Kbd size="xs">Win</Kbd>+<Kbd size="xs">Shift</Kbd>+<Kbd size="xs">S</Kbd>), and press <Kbd size="xs">Ctrl</Kbd>+<Kbd size="xs">V</Kbd> anywhere. Or drop a PDF, photo, email or Excel file on the lines.{" "}
                       <Text span fw={700} c="maroon.7">5 · Enter rates</Text> — click a cell and type; <Kbd size="xs">Enter</Kbd> moves down.
                     </Text>
-                    <FileButton onChange={(f) => f && onFile(f)} accept=".xlsx,.xls,.csv">
-                      {(p) => <Button {...p} size="xs" variant="white" leftSection={<IconFileImport size={14} />}>Import .xlsx / .csv</Button>}
+                    <FileButton onChange={(f) => f && onFile(f)} accept={IMPORT_ACCEPT}>
+                      {(p) => <Button {...p} size="xs" variant="white" leftSection={<IconFileImport size={14} />}>Import file</Button>}
                     </FileButton>
                   </Group>
                 </Paper>
@@ -514,7 +548,7 @@ export function QuoteEditor() {
               </Stack>
             </Paper>
 
-            <Workings quoteId={quote?.id ?? null} readOnly={readOnly} />
+            <Workings quoteId={quote?.id ?? null} readOnly={readOnly} version={workingsVer} />
 
             {quote && quote.revisions.length > 1 && (
               <Paper p="md">
@@ -546,9 +580,17 @@ export function QuoteEditor() {
         </Grid.Col>
       </Grid>
 
+      <Modal opened={!!reading} onClose={() => {}} withCloseButton={false} centered size="sm">
+        <Stack gap="sm" py="xs">
+          <Group gap="sm"><Loader size="sm" /><Text fw={600}>{reading?.label}</Text></Group>
+          {reading?.pct != null && <Progress value={reading.pct} animated />}
+        </Stack>
+      </Modal>
       {paste && (
         <PastePreview
           input={paste.input}
+          previews={paste.previews}
+          ocr={paste.ocr}
           hasLines={lines.some((l) => !isBlank(l))}
           canInsert={paste.row != null && paste.row < lines.filter((l) => !isBlank(l)).length}
           enquiryEmpty={!h.enquiry_ref}
