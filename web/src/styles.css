@@ -1,34 +1,48 @@
 /* App-specific styles on top of Mantine: the quote line grid and the printed A4 quotation. */
 body { background: var(--mantine-color-gray-0); }
 
-/* ---------- line grid (Excel-like) ---------- */
-.lg-wrap { overflow-x: auto; border: 1px solid var(--mantine-color-gray-3); border-radius: var(--mantine-radius-md); background: var(--mantine-color-white); }
+/* ---------- line grid (Excel-like: one active cell, range selection, edit in place) ---------- */
+.lg-wrap { overflow-x: auto; border: 1px solid var(--mantine-color-gray-3); border-radius: var(--mantine-radius-md); background: var(--mantine-color-white); outline: none; }
+.lg-wrap:focus-visible { border-color: var(--mantine-color-stamp-6); }
 .lg { width: 100%; border-collapse: collapse; font-size: var(--mantine-font-size-sm); min-width: 760px; }
 .lg th { font: 600 11px var(--mantine-font-family-monospace); letter-spacing: 0.06em; text-transform: uppercase; color: var(--mantine-color-dimmed); background: var(--mantine-color-gray-0); padding: 9px 8px; border-bottom: 1px solid var(--mantine-color-gray-3); text-align: left; white-space: nowrap; }
 .lg th.r { text-align: right; }
 .lg td { border-bottom: 1px solid var(--mantine-color-gray-2); padding: 0; vertical-align: top; }
+.lg td.gc { border-right: 1px solid var(--mantine-color-gray-1); cursor: cell; user-select: none; position: relative; }
+.lg td.gc.editing { cursor: text; user-select: auto; }
 .lg td.sr { width: 52px; text-align: center; padding-top: 9px; color: var(--mantine-color-dimmed); font-variant-numeric: tabular-nums; cursor: grab; user-select: none; white-space: nowrap; }
 .lg td.sr .grip { opacity: 0; vertical-align: -2px; margin-right: 2px; }
 .lg tr:hover td.sr .grip { opacity: 0.6; }
-.lg td.amt { width: 130px; text-align: right; padding: 9px 10px; font-family: var(--mantine-font-family-monospace); font-size: 13px; white-space: nowrap; }
+.lg td.amt { width: 130px; }
+.lg td.amt .cell { padding-right: 10px; }
 .lg td.act { width: 40px; text-align: center; padding-top: 4px; }
-.lg .cell { border: 0; border-radius: 0; padding: 8px 9px; background: transparent; width: 100%; font: inherit; color: inherit; outline: none; }
-.lg .cell:focus { box-shadow: inset 0 0 0 2px var(--mantine-color-stamp-6); background: var(--mantine-color-stamp-0); }
-.lg textarea.cell { resize: none; overflow: hidden; min-height: 36px; display: block; line-height: 1.4; }
-.lg input.cell.n { text-align: right; font-family: var(--mantine-font-family-monospace); font-size: 13px; }
+.lg .cell { border: 0; border-radius: 0; padding: 8px 9px; background: transparent; width: 100%; font: inherit; color: inherit; outline: none; min-height: 36px; line-height: 1.4; display: block; }
+.lg div.cell { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lg .cell.ph { color: var(--mantine-color-placeholder); }
+.lg textarea.cell { resize: none; overflow: hidden; }
+.lg .cell.n { text-align: right; font-family: var(--mantine-font-family-monospace); font-size: 13px; }
 .lg td.qty { width: 90px; }
-.lg td.unit { width: 84px; }
-.lg td.rate { width: 130px; }
-.lg td.rate .cell { background: var(--mantine-color-maroon-0); }
-.lg td.rate .cell:focus { background: var(--mantine-color-stamp-0); }
-.lg td.rate .cell.missing { background: var(--mantine-color-orange-0); }
-.lg td.rate .cell::placeholder { color: var(--mantine-color-orange-5); font-family: var(--mantine-font-family); font-style: italic; }
+.lg td.unit { width: 92px; }
+.lg td.unit div.cell { padding-right: 22px; }
+.lg td.unit .dd { position: absolute; right: 4px; top: 10px; color: var(--mantine-color-dimmed); opacity: 0; cursor: pointer; line-height: 0; }
+.lg tr:hover td.unit .dd, .lg td.unit.active .dd { opacity: 1; }
+.lg td.rate { width: 130px; background: var(--mantine-color-maroon-0); }
+.lg td.rate.missing { background: var(--mantine-color-orange-0); }
+.lg td.rate .cell.ph { color: var(--mantine-color-orange-5); font-family: var(--mantine-font-family); font-style: italic; }
+.lg td.gc.sel { background: var(--mantine-color-stamp-0); }
+.lg td.gc.active { box-shadow: inset 0 0 0 2px var(--mantine-color-stamp-6); }
+.lg td.gc.editing { background: var(--mantine-color-white); }
 .lg tr.heading td { background: var(--mantine-color-gray-0); }
-.lg tr.heading textarea.cell { font-weight: 700; color: var(--mantine-color-maroon-7); letter-spacing: 0.03em; }
+.lg tr.heading td.gc.sel { background: var(--mantine-color-stamp-0); }
+.lg tr.heading td.desc .cell { font-weight: 700; color: var(--mantine-color-maroon-7); letter-spacing: 0.03em; }
 .lg tr.drop-before td { box-shadow: inset 0 2px 0 var(--mantine-color-stamp-6); }
 .lg .rowmenu { opacity: 0.35; }
 .lg tr:hover .rowmenu, .lg .rowmenu:focus, .lg .rowmenu[data-expanded] { opacity: 1; }
 .lg-foot { border-top: 1px solid var(--mantine-color-gray-3); background: var(--mantine-color-gray-0); }
+.lg-pop { position: fixed; z-index: 400; max-height: 240px; overflow-y: auto; background: var(--mantine-color-white); border: 1px solid var(--mantine-color-gray-3); border-radius: var(--mantine-radius-sm); box-shadow: var(--mantine-shadow-md); padding: 4px 0; font-size: var(--mantine-font-size-sm); }
+.lg-pop .opt { padding: 5px 10px; cursor: pointer; }
+.lg-pop .opt.hi { background: var(--mantine-color-stamp-0); }
+.lg-pop .opt.cur { font-weight: 700; }
 .dropzone { outline: 2px dashed var(--mantine-color-stamp-6); outline-offset: -4px; }
 
 /* ---------- printed quotation (A4) ---------- */

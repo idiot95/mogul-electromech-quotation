@@ -232,7 +232,7 @@ export function QuoteEditor() {
     const onPaste = (e: ClipboardEvent) => {
       if (readOnly || paste) return;
       const t = e.target as HTMLElement;
-      if (t.closest("input, textarea, select, [contenteditable], [data-workings], .mantine-Modal-root")) return;
+      if (t.closest("input, textarea, select, [contenteditable], [data-workings], [data-line-grid], .mantine-Modal-root")) return;
       const text = e.clipboardData?.getData("text/plain") || "";
       if (!text.trim()) return;
       const html = e.clipboardData?.getData("text/html") || "";
@@ -412,7 +412,7 @@ export function QuoteEditor() {
                   <Group justify="space-between" gap="xs">
                     <Text fz="sm">
                       <Text span fw={700} c="maroon.7">4 · Paste items</Text> — copy cells in Excel or a list from an email, press <Kbd size="xs">Ctrl</Kbd>+<Kbd size="xs">V</Kbd> anywhere.{" "}
-                      <Text span fw={700} c="maroon.7">5 · Enter rates</Text> — <Kbd size="xs">Enter</Kbd> moves down.
+                      <Text span fw={700} c="maroon.7">5 · Enter rates</Text> — click a cell and type; <Kbd size="xs">Enter</Kbd> moves down.
                     </Text>
                     <FileButton onChange={(f) => f && onFile(f)} accept=".xlsx,.xls,.csv">
                       {(p) => <Button {...p} size="xs" variant="white" leftSection={<IconFileImport size={14} />}>Import .xlsx / .csv</Button>}
