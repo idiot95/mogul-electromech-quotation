@@ -30,7 +30,7 @@
       // Custom domain is added once mogulelectromech.com DNS is on Cloudflare (see docs/DEPLOY.md):
       // "routes": [{ "pattern": "quotes-staging.mogulelectromech.com", "custom_domain": true }],
       "d1_databases": [
-        { "binding": "DB", "database_name": "mogul-workspace-staging", "database_id": "REPLACE_STAGING_D1_ID", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "mogul-workspace-staging", "database_id": "bfdf3f18-0908-4da9-aef1-0b4d67a6b4ba", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [{ "binding": "FILES", "bucket_name": "mogul-workspace-staging" }]
     },
