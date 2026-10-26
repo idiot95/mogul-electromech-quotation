@@ -14,6 +14,7 @@ import { CustomerPicker } from "./CustomerPicker";
 import { Workings } from "./Workings";
 import { EmailDialog } from "./EmailDialog";
 import { StatusBadge } from "./status";
+import { Outcome } from "./Outcome";
 import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Kbd, Loader, NumberInput, Paper, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title, Tooltip, FileButton } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { modals } from "@mantine/modals";
@@ -420,6 +421,11 @@ export function QuoteEditor() {
                   </Group>
                 </Paper>
               )}
+              {quote && quote.orders.length > 0 && !readOnly && (
+                <Text fz="sm" c="dimmed" className="no-print">
+                  Orders are recorded against this quote. Changing lines here doesn't change what was ordered.
+                </Text>
+              )}
               <LineGrid
                 lines={lines}
                 readOnly={readOnly}
@@ -461,6 +467,15 @@ export function QuoteEditor() {
                 <Text c="orange.7" fz="sm" mt="sm"><IconAlertTriangle size={14} style={{ verticalAlign: -2 }} /> {t.missingRate} line{t.missingRate === 1 ? " has" : "s have"} no rate</Text>
               )}
             </Paper>
+
+            {quote && (
+              <Outcome
+                quote={quote}
+                readOnly={readOnly}
+                beforeAction={async () => !dirty || !!(await save())}
+                onChange={applyQuote}
+              />
+            )}
 
             <Paper p="md">
               <Stack gap="xs">

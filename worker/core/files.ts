@@ -3,7 +3,7 @@ import type { AppContext } from "../env";
 import { bad, intParam, notFound } from "./util";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const OWNER_TYPES = new Set(["quote"]);
+const OWNER_TYPES = new Set(["quote", "q_order"]); // q_order = customer PO copies
 
 export const filesApi = new Hono<AppContext>()
   .get("/", async (c) => {

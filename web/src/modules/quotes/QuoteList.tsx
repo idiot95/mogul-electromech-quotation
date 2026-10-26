@@ -8,7 +8,7 @@ import type { QuoteListRow } from "../../lib/types";
 import { dateFmt, money, quoteNo } from "../../lib/format";
 import { useApp } from "../../core/app-context";
 import { Page } from "../../core/Page";
-import { RevBadge, StatusBadge } from "./status";
+import { RevBadge, STATUS_LABEL, StatusBadge } from "./status";
 
 export function QuoteList() {
   const { salesmen, toast } = useApp();
@@ -43,9 +43,9 @@ export function QuoteList() {
 
   function exportCsv() {
     if (!rows) return;
-    const head = ["Number", "Date", "Customer", "Enquiry ref", "Salesman", "Status", "Lines", "Subtotal", "Total"];
+    const head = ["Number", "Date", "Customer", "Enquiry ref", "Salesman", "Status", "Lines", "Subtotal", "Total", "Ordered (excl. VAT)", "Lost reason"];
     const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const body = rows.map((r) => [quoteNo(r.base_number, r.rev), r.quote_date, r.customer_name, r.enquiry_ref, r.salesman_name, r.status, r.line_count, r.subtotal, r.total].map(esc).join(","));
+    const body = rows.map((r) => [quoteNo(r.base_number, r.rev), r.quote_date, r.customer_name, r.enquiry_ref, r.salesman_name, STATUS_LABEL[r.status], r.line_count, r.subtotal, r.total, r.ordered_value, r.lost_reason].map(esc).join(","));
     const blob = new Blob([[head.join(","), ...body].join("\r\n")], { type: "text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -77,7 +77,10 @@ export function QuoteList() {
           />
           <Select label="Salesman" placeholder="All" clearable value={salesman || null} onChange={(v) => set("salesman_id", v)} data={salesmen.map((s) => ({ value: String(s.id), label: s.name }))} />
           <Select label="Status" placeholder="All" clearable value={status || null} onChange={(v) => set("status", v)}
-            data={[{ value: "draft", label: "Draft" }, { value: "printed", label: "Printed" }, { value: "emailed", label: "Emailed" }, { value: "cancelled", label: "Cancelled" }]} />
+            data={[
+              { group: "Outcome", items: [{ value: "open", label: "Awaiting reply" }, { value: "ordered", label: "Won + partly won" }, { value: "won", label: "Won" }, { value: "partly_won", label: "Partly won" }, { value: "lost", label: "Lost" }] },
+              { group: "Stage", items: [{ value: "draft", label: "Draft" }, { value: "printed", label: "Printed" }, { value: "emailed", label: "Sent" }, { value: "cancelled", label: "Cancelled" }] },
+            ]} />
           <DatePickerInput
             type="range"
             label="Date"
@@ -129,9 +132,13 @@ export function QuoteList() {
                   <Table.Td>{r.enquiry_ref}</Table.Td>
                   <Table.Td>{r.salesman_name}</Table.Td>
                   <Table.Td ta="right">{r.line_count}</Table.Td>
-                  <Table.Td ta="right" ff="monospace" fz="sm">{money(r.subtotal)}</Table.Td>
+                  <Table.Td ta="right" ff="monospace" fz="sm">
+                    {money(r.subtotal)}
+                    {r.ordered_value > 0 && <Text ff="monospace" fz="xs" c="green.8">ordered {money(r.ordered_value)}</Text>}
+                  </Table.Td>
                   <Table.Td>
                     <StatusBadge s={r.status} />
+                    {r.status === "lost" && r.lost_reason ? <Text span c="dimmed" fz="xs" ml={6}>{r.lost_reason}</Text> : null}
                     {r.superseded_by ? <Text span c="dimmed" fz="xs" ml={6}>replaced</Text> : null}
                   </Table.Td>
                 </Table.Tr>

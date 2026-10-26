@@ -52,10 +52,11 @@ export interface Settings {
   quotes: QuoteSettings;
 }
 
-export type QuoteStatus = "draft" | "printed" | "emailed" | "cancelled";
+export type QuoteStatus = "draft" | "printed" | "emailed" | "won" | "partly_won" | "lost" | "cancelled";
 
 export interface Line {
   id?: number;
+  pos?: number;
   kind: "item" | "heading";
   description: string;
   qty: number | null;
@@ -102,6 +103,32 @@ export interface Quote extends QuoteHeader {
   emails: { id: number; to_addr: string; cc_addr: string; subject: string; method: string; sent_by: string; created_at: string }[];
   revisions: { id: number; rev: number; status: QuoteStatus; quote_date: string; total: number }[];
   workings_count: number;
+  orders: Order[];
+  lost_reason: string | null;
+  lost_note: string | null;
+}
+
+/** A customer PO recorded against a quote. */
+export interface Order {
+  id: number;
+  po_number: string | null;
+  po_date: string | null;
+  note: string | null;
+  subtotal: number;
+  created_at: string;
+  lines: OrderLine[];
+  files: FileRow[];
+}
+
+export interface OrderLine {
+  pos: number;
+  description: string;
+  unit: string | null;
+  quoted_qty: number | null;
+  quoted_rate: number | null;
+  qty: number;
+  rate: number | null;
+  amount: number | null;
 }
 
 export interface QuoteListRow {
@@ -119,6 +146,8 @@ export interface QuoteListRow {
   currency: string;
   line_count: number;
   superseded_by: number | null;
+  ordered_value: number;
+  lost_reason: string | null;
 }
 
 export interface FileRow {

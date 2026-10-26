@@ -5,7 +5,6 @@ body { background: var(--mantine-color-gray-0); }
 .side { border-right: 1px solid var(--mantine-color-gray-2); }
 .side-link { border-radius: var(--mantine-radius-md); padding-block: 9px; margin-bottom: 2px; font-size: var(--mantine-font-size-sm); }
 .side-link:hover { background: var(--mantine-color-gray-0); }
-.side-link[data-active] { box-shadow: inset 3px 0 0 var(--mantine-color-maroon-7); }
 .side-link[data-active] svg { color: var(--mantine-color-maroon-7); }
 .side-link:not([data-active]) svg { color: var(--mantine-color-gray-6); }
 
