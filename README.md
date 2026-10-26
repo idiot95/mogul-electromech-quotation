@@ -9,9 +9,9 @@ Module 1 is **Quotations**. Runs on Cloudflare's free tier (Worker + D1 + R2).
 - Customer drop-down with type-ahead; picking a customer fills payment, validity, delivery and VAT terms ("from customer" marker). New customers are added once from the same box.
 - Enquiry ref, salesman, date, kind attention.
 - **Paste from Excel or email** — Ctrl+V anywhere on the quote. Reads Excel's rich clipboard, tab-separated text or a numbered email list; finds the header row, maps columns (Sr, Description, Qty, Unit; Part No / Make / Size / Remarks are added to the description), skips banners, totals and repeated headers, joins wrapped lines, keeps section headings, spots the enquiry ref. A preview lets you change any column mapping before lines are added. Price columns are ignored unless mapped to Rate (rates are never filled from history).
-- Keyboard grid: Enter moves down the Rate column, a pasted column of rates fills down, Ctrl+D fill down, Ctrl+Z undoes a paste, drag to reorder, row menu (insert, heading, duplicate, delete), drop an .xlsx/.csv file.
+- Spreadsheet-style grid: arrow keys move the active cell, Shift+arrows / drag select a range, type to overwrite, Enter/F2 to edit, Enter on Unit opens its pick list, Ctrl+C/X/V copy and paste cell blocks (round-trips with Excel), Delete clears, Ctrl+D fill down, Ctrl+Z undo, drag to reorder, row menu (insert, heading, duplicate, delete), drop an .xlsx/.csv file.
 - Numbering `ME-YY-NNN`, revisions as `REV 01`, `REV 02` (older revision kept read-only).
-- Print / Save as PDF in the Mogul letterhead layout (logo, stamp, TRN, amount in words). PDF file name = `ME-26-089 CUSTOMER NAME`.
+- Print / Save as PDF in the Mogul letterhead layout (logo, stamp, TRN, amount in words). PDF file name = `ME-26-089 CUSTOMER NAME`. Multi-page quotes repeat the table header, never split a line, keep section headings with their first item and totals with the table, and print "ME-26-089 · Customer" and "Page x of y" on every page.
 - Email: opens the salesman's Outlook with To/Cc/subject/body from a per-salesman template and logs it on the quote. (Thread picker + automatic attachment come with Microsoft sign-in.)
 - Workings: attach photos (phone camera), screenshots (paste) or files. Never printed.
 - Quote list with search (number, customer, enquiry ref, item text), filters, CSV export.

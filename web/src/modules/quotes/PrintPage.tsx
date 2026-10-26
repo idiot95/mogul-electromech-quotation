@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { Alert, Box, Button, Center, Code, Group, Loader } from "@mantine/core";
+import { Alert, Box, Button, Center, Code, Loader } from "@mantine/core";
 import { IconAlertTriangle, IconArrowLeft, IconInfoCircle, IconMail, IconPrinter } from "@tabler/icons-react";
 import { api } from "../../lib/api";
 import type { Quote } from "../../lib/types";
 import { useApp } from "../../core/app-context";
+import { quoteNo } from "../../lib/format";
 import { Page } from "../../core/Page";
 import { QuoteDocument, pdfFileName } from "./QuoteDocument";
 import { EmailDialog } from "./EmailDialog";
@@ -62,10 +63,11 @@ export function PrintPage() {
       <Alert className="no-print" color="stamp" variant="light" icon={<IconInfoCircle size={18} />}>
         In the print window choose <b>Save as PDF</b> to keep a file (named <Code>{pdfFileName(q)}.pdf</Code>), or pick a printer. Set margins to <b>None</b> if your browser asks.
       </Alert>
+      {/* every printed page: quote number bottom-left, page x of y bottom-right */}
+      <style>{`@media print { @page { @bottom-left { content: ${JSON.stringify(`${quoteNo(q.base_number, q.rev)} · ${q.customer_name}`)}; } } }`}</style>
       <Box className="paper-wrap">
         <QuoteDocument q={q} company={settings.company} cfg={settings.quotes} />
       </Box>
-      <Group />
       {emailOpen && <EmailDialog quote={q} onClose={() => setEmailOpen(false)} onLogged={(u) => { setQ(u); setEmailOpen(false); }} onPrint={() => { setEmailOpen(false); doPrint(); }} />}
     </Page>
   );

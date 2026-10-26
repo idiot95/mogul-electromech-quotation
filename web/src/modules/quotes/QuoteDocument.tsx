@@ -73,7 +73,7 @@ export function QuoteDocument({ q, company, cfg }: { q: DocQuote; company: Compa
         <tbody>
           {q.lines.map((l, i) =>
             l.kind === "heading" ? (
-              <tr key={i} className="hd"><td /><td colSpan={5}>{l.description}</td></tr>
+              <tr key={i} className="sec"><td /><td colSpan={5}>{l.description}</td></tr>
             ) : (
               <tr key={i}>
                 <td style={{ textAlign: "center" }}>{++sr}</td>
@@ -87,6 +87,8 @@ export function QuoteDocument({ q, company, cfg }: { q: DocQuote; company: Compa
           )}
         </tbody>
       </table>
+      {/* totals stay with the table; the signature block never splits (see styles.css) */}
+      <div className="closing">
       <div className="sum">
         <span>Subtotal</span><b className="num">{money(q.subtotal)}</b>
         {cfg.showVatAmount ? (
@@ -109,6 +111,7 @@ export function QuoteDocument({ q, company, cfg }: { q: DocQuote; company: Compa
           <img src="/stamp.jpg" alt="" />
           <div>Authorised Signatory</div>
         </div>
+      </div>
       </div>
     </div>
   );

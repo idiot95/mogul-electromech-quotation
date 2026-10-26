@@ -1,6 +1,14 @@
 /* App-specific styles on top of Mantine: the quote line grid and the printed A4 quotation. */
 body { background: var(--mantine-color-gray-0); }
 
+/* ---------- sidebar ---------- */
+.side { border-right: 1px solid var(--mantine-color-gray-2); }
+.side-link { border-radius: var(--mantine-radius-md); padding-block: 9px; margin-bottom: 2px; font-size: var(--mantine-font-size-sm); }
+.side-link:hover { background: var(--mantine-color-gray-0); }
+.side-link[data-active] { box-shadow: inset 3px 0 0 var(--mantine-color-maroon-7); }
+.side-link[data-active] svg { color: var(--mantine-color-maroon-7); }
+.side-link:not([data-active]) svg { color: var(--mantine-color-gray-6); }
+
 /* ---------- line grid (Excel-like: one active cell, range selection, edit in place) ---------- */
 .lg-wrap { overflow-x: auto; border: 1px solid var(--mantine-color-gray-3); border-radius: var(--mantine-radius-md); background: var(--mantine-color-white); outline: none; }
 .lg-wrap:focus-visible { border-color: var(--mantine-color-stamp-6); }
@@ -61,9 +69,11 @@ body { background: var(--mantine-color-gray-0); }
 .paper td { padding: 6px; border-bottom: 1px solid #cfcfcf; border-left: 1px solid #cfcfcf; vertical-align: top; }
 .paper td.d { white-space: pre-line; }
 .paper .num { font-variant-numeric: tabular-nums; }
-.paper tr.hd td { font-weight: 700; color: #8f1414; background: #f6f5f4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.paper tr.sec td { font-weight: 700; color: #8f1414; background: #f6f5f4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .paper tbody tr { break-inside: avoid; }
-.paper .sum { display: grid; grid-template-columns: 1fr 140px; justify-items: end; gap: 3px 16px; margin-top: 8px; font-size: 10pt; break-inside: avoid; }
+.paper tr.sec { break-after: avoid; }
+.paper .closing { flex: 1; display: flex; flex-direction: column; }
+.paper .sum { display: grid; grid-template-columns: 1fr 140px; justify-items: end; gap: 3px 16px; margin-top: 8px; font-size: 10pt; break-inside: avoid; break-before: avoid; }
 .paper .sum b { font-family: var(--mantine-font-family-headings); }
 .paper .words { margin-top: 6px; font-style: italic; font-size: 9.5pt; }
 .paper .remarks { margin-top: 10px; font-size: 9.5pt; white-space: pre-line; }
@@ -71,11 +81,20 @@ body { background: var(--mantine-color-gray-0); }
 .paper .foot img { width: 105px; height: auto; mix-blend-mode: multiply; transform: rotate(-8deg); }
 .paper small { color: #777; }
 
+/* Printing: A4 with a real top/bottom margin on every page (continuation pages included), the table header repeated,
+   rows never split, headings kept with their first item, totals kept with the table and the signature block in one piece. */
 @media print {
-  @page { size: A4; margin: 0; }
+  @page {
+    size: A4;
+    margin: 10mm 0 12mm;
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7.5pt "Source Sans 3", sans-serif; color: #777; margin-right: 14mm; }
+    @bottom-left { font: 7.5pt "Source Sans 3", sans-serif; color: #777; margin-left: 14mm; }
+  }
   body { background: #fff; }
   .no-print, .mantine-AppShell-navbar, .mantine-AppShell-header, .mantine-Notifications-root { display: none !important; }
   .mantine-AppShell-main { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
+  .page-stack { padding: 0 !important; gap: 0 !important; }
   .paper-wrap { background: none; padding: 0; border-radius: 0; overflow: visible; }
-  .paper { box-shadow: none; margin: 0; min-height: 296mm; }
+  .paper { box-shadow: none; margin: 0; width: auto; min-height: 272mm; padding: 4mm 14mm 0; }
+  .paper thead { display: table-header-group; }
 }
