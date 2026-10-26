@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { ActionIcon, Button, Group, Kbd, Menu, Text } from "@mantine/core";
+import { ActionIcon, Button, Group, Menu } from "@mantine/core";
 import { IconArrowBackUp, IconArrowDown, IconArrowUp, IconChevronDown, IconCopy, IconDotsVertical, IconGripVertical, IconHeading, IconPlus, IconRowInsertBottom, IconRowInsertTop, IconTrash } from "@tabler/icons-react";
 import { money } from "../../lib/format";
 import { blankLine, headingLine, lineAmount, newKey, parseNum, type EditLine } from "./lines";
@@ -508,11 +508,11 @@ export function LineGrid(props: {
         <thead>
           <tr>
             <th>Sr</th>
-            <th>Description of goods</th>
+            <th>Description</th>
             <th className="r">Qty</th>
             <th>Unit</th>
             <th className="r">Rate ({props.currency})</th>
-            <th className="r">Amount</th>
+            <th className="r">Amount ({props.currency})</th>
             <th />
           </tr>
         </thead>
@@ -556,7 +556,7 @@ export function LineGrid(props: {
                     setActive({ row: i, col: NCOLS - 1 });
                     focusGrid();
                   }}
-                  title={readOnly ? undefined : "Click to select the line · drag to reorder"}
+                  title={readOnly ? undefined : "Drag to reorder"}
                 >
                   {!readOnly && <IconGripVertical size={12} className="grip" />}
                   {heading ? "§" : sr}
@@ -566,7 +566,7 @@ export function LineGrid(props: {
                     <AutoTextarea className="cell" value={l.description} onChange={(v) => update(i, { description: v })} />
                   ) : (
                     <div className={"cell" + (l.description ? "" : " ph")}>
-                      {l.description || (heading ? "Section heading" : i === 0 && lines.length === 1 && !readOnly ? "Paste items here (Ctrl+V) or type a description" : "")}
+                      {l.description || (heading ? "Section" : "")}
                     </div>
                   )}
                 </td>
@@ -593,7 +593,7 @@ export function LineGrid(props: {
                       {isEditing(i, 3) ? (
                         <CellInput className="cell n" inputMode="decimal" value={l.rate} onChange={(v) => update(i, { rate: v })} />
                       ) : (
-                        <div className={"cell n" + (l.rate ? "" : " ph")}>{l.rate || (l.description.trim() && !readOnly ? "enter rate" : "")}</div>
+                        <div className="cell n">{l.rate}</div>
                       )}
                     </td>
                   </>
@@ -637,12 +637,9 @@ export function LineGrid(props: {
       </table>
       {!readOnly && (
         <Group className="lg-foot no-print" gap="xs" px="xs" py={8}>
-          <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => insertAt(lines.length)}>Line</Button>
-          <Button size="xs" variant="default" leftSection={<IconHeading size={14} />} onClick={() => insertAt(lines.length, headingLine())}>Section heading</Button>
+          <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => insertAt(lines.length)}>Add Line</Button>
+          <Button size="xs" variant="default" leftSection={<IconHeading size={14} />} onClick={() => insertAt(lines.length, headingLine())}>Add Section</Button>
           {props.canUndo && <Button size="xs" variant="subtle" leftSection={<IconArrowBackUp size={14} />} onClick={props.onUndo}>Undo</Button>}
-          <Text fz="xs" c="dimmed" ml="auto">
-            <Kbd size="xs">←↑↓→</Kbd> move · <Kbd size="xs">Shift</Kbd>+arrows select · <Kbd size="xs">Enter</Kbd> edit / pick unit · <Kbd size="xs">Ctrl</Kbd>+<Kbd size="xs">C</Kbd>/<Kbd size="xs">V</Kbd> copy, paste · <Kbd size="xs">Ctrl</Kbd>+<Kbd size="xs">D</Kbd> fill down · <Kbd size="xs">Del</Kbd> clear · drop .xlsx / .csv here
-          </Text>
         </Group>
       )}
     </div>

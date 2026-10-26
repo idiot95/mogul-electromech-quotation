@@ -8,7 +8,7 @@ export const quotesModule: WebModule = {
   id: "quotes",
   name: "Quotations",
   nav: [{ label: "Quotations", path: "/quotes" }],
-  newAction: { label: "New quote", path: "/quotes/new" },
+  newAction: { label: "New Quotation", path: "/quotes/new" },
   routes: [
     { path: "quotes", element: <QuoteList /> },
     { path: "quotes/new", element: <QuoteEditor key="new" /> },

@@ -9,16 +9,19 @@ import { extractFile, IMPORT_ACCEPT, kindOf } from "../../lib/extract";
 import type { PasteInput } from "../../../../shared/paste-engine";
 import { LineGrid, type GridApi } from "./LineGrid";
 import { PastePreview, type PasteMode } from "./PastePreview";
-import { blankLine, computeTotals, fromLines, fromParsed, isBlank, toLines, type EditLine } from "./lines";
+import { blankLine, computeTotals, fromLines, fromParsed, isBlank, lineAmount, parseNum, toLines, type EditLine } from "./lines";
+import { pdfFileName } from "./QuoteDocument";
+import { Page } from "../../core/Page";
+import { downloadSheet } from "../../lib/sheets";
 import { CustomerPicker } from "./CustomerPicker";
 import { Workings } from "./Workings";
 import { EmailDialog } from "./EmailDialog";
 import { StatusBadge } from "./status";
 import { Outcome } from "./Outcome";
-import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Kbd, Loader, Modal, NumberInput, Paper, Progress, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title, Tooltip, FileButton } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Loader, Menu, Modal, NumberInput, Paper, Progress, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title, FileButton } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { modals } from "@mantine/modals";
-import { IconAlertTriangle, IconArrowLeft, IconBan, IconCopy, IconDeviceFloppy, IconFileImport, IconGitBranch, IconLock, IconMail, IconPrinter, IconRefresh, IconTrash, IconUser } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBan, IconDots, IconFileSpreadsheet, IconCopy, IconDeviceFloppy, IconFileImport, IconGitBranch, IconLock, IconMail, IconPrinter, IconRefresh, IconTrash, IconUser } from "@tabler/icons-react";
 
 const LAST_SALESMAN = "mogul.lastSalesman";
 
@@ -75,7 +78,6 @@ export function QuoteEditor() {
   dirtyRef.current = dirty;
 
   const readOnly = !!quote?.superseded_by;
-  const selectedCustomer = customers.find((c) => c.id === h.customer_id) || null;
 
   // ---------- load ----------
   useEffect(() => {
@@ -350,48 +352,98 @@ export function QuoteEditor() {
   if (loading || !cfg) return <Center py={80}><Loader /></Center>;
 
   const t = computeTotals(lines, Number(h.vat_rate) || 0);
-  const fromCust = (k: "payment_terms" | "validity" | "delivery_terms" | "vat_terms") =>
-    !!selectedCustomer && !!h[k] && selectedCustomer[k] === h[k] ? <Badge size="xs" variant="light" color="stamp" ml={6} tt="none">from customer</Badge> : null;
   const latestRev = quote?.revisions[quote.revisions.length - 1];
   const nextRev = (latestRev?.rev ?? quote?.rev ?? 0) + 1;
   const cur = quote?.currency || cfg.currency;
   const term = (k: "payment_terms" | "validity" | "delivery_terms" | "vat_terms", label: string) => (
     <TextInput
-      label={<>{label}{fromCust(k)}</>}
+      label={label}
       value={h[k] || ""}
       readOnly={readOnly}
       onChange={(e) => setField(k, e.currentTarget.value)}
     />
   );
 
-  return (
-    <Stack gap="lg" pb={60}>
-      <Group justify="space-between" align="flex-start" wrap="wrap">
-        <div>
-          <Group gap="sm" align="center">
-            <Title order={2} ff="heading">{quote ? quoteNo(quote.base_number, quote.rev) : "New quotation"}</Title>
-            {quote && <StatusBadge s={quote.status} size="md" />}
-            {readOnly && <Badge color="gray" leftSection={<IconLock size={12} />}>Read-only</Badge>}
-          </Group>
-          <Text c="dimmed" fz="sm" mt={4}>
-            {quote ? `Created ${dateFmt(quote.created_at)} · last saved ${quote.updated_at.slice(11, 16)}` : "The number is given on first save"}
-            {dirty && <Text span c="orange.7" fw={600}> · unsaved changes</Text>}
-          </Text>
-        </div>
-        <Group gap="sm">
-          <Button component={Link} to="/quotes" variant="subtle" color="gray" leftSection={<IconArrowLeft size={16} />}>All quotes</Button>
-          {!readOnly && (
-            <Button onClick={() => save()} loading={saving} leftSection={<IconDeviceFloppy size={16} />} rightSection={<Kbd size="xs">Ctrl+S</Kbd>}>
-              Save
-            </Button>
-          )}
-        </Group>
-      </Group>
+  const no = quote ? quoteNo(quote.base_number, quote.rev) : "New Quotation";
 
+  async function exportExcel() {
+    const rows: (string | number | null)[][] = [
+      ["Quotation No.", quote ? no : ""],
+      ["Date", dateFmt(h.quote_date)],
+      ["Customer", h.customer_name],
+      ["Enquiry Reference", h.enquiry_ref || ""],
+      ["Salesperson", salesmen.find((s) => s.id === h.salesman_id)?.name || ""],
+      [],
+      ["Sr", "Description", "Qty", "Unit", `Rate (${cur})`, `Amount (${cur})`],
+    ];
+    let sr = 0;
+    for (const l of lines) {
+      if (isBlank(l)) continue;
+      if (l.kind === "heading") rows.push(["", l.description]);
+      else rows.push([++sr, l.description, parseNum(l.qty), l.unit, parseNum(l.rate), lineAmount(l)]);
+    }
+    rows.push([], ["", "", "", "", "Subtotal", t.subtotal], ["", "", "", "", `VAT ${h.vat_rate}%`, t.vat], ["", "", "", "", "Total", t.total]);
+    await downloadSheet(quote ? pdfFileName(quote) : "New Quotation", quote ? no : "Quotation", rows, [8, 60, 10, 8, 14, 16]);
+  }
+
+  return (
+    <Page
+      crumbs={[{ label: "Quotations", to: "/quotes" }]}
+      title={<Title order={2}>{no}</Title>}
+      badges={
+        <>
+          {quote && <StatusBadge s={quote.status} size="md" />}
+          {readOnly && <Badge color="gray" variant="light" leftSection={<IconLock size={12} />}>Read-only</Badge>}
+          {dirty && <Badge color="orange" variant="light">Unsaved</Badge>}
+        </>
+      }
+      actions={
+        <>
+          <Button variant="default" leftSection={<IconFileSpreadsheet size={16} />} onClick={exportExcel} disabled={!lines.some((l) => !isBlank(l))}>Export to Excel</Button>
+          <Button variant="default" leftSection={<IconMail size={16} />} disabled={!quote}
+            onClick={async () => { if (dirty && !(await save())) return; setEmailOpen(true); }}>
+            Email
+          </Button>
+          <Button variant="default" leftSection={<IconPrinter size={16} />} onClick={print} loading={saving}>Print / PDF</Button>
+          {!readOnly && <Button onClick={() => save()} loading={saving} leftSection={<IconDeviceFloppy size={16} />}>Save</Button>}
+          {quote && (
+            <Menu position="bottom-end" shadow="md" width={230}>
+              <Menu.Target>
+                <ActionIcon variant="default" size={36} aria-label="More actions"><IconDots size={18} /></ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {!readOnly && (
+                  <Menu.Item leftSection={<IconGitBranch size={16} />}
+                    onClick={() => ask(`Create ${quoteNo(quote.base_number, nextRev)}?`, "The current version is kept read-only.", "Create Revision", () => act("/revise", undefined, "Revision created"))}>
+                    Create Revision (REV {String(nextRev).padStart(2, "0")})
+                  </Menu.Item>
+                )}
+                <Menu.Item leftSection={<IconCopy size={16} />} onClick={() => act("/duplicate", undefined, "Copied to a new quotation")}>Duplicate as New Quotation</Menu.Item>
+                {!readOnly && <Menu.Divider />}
+                {!readOnly && (quote.status !== "cancelled" ? (
+                  <Menu.Item color="red" leftSection={<IconBan size={16} />}
+                    onClick={() => ask("Cancel this quotation?", "It remains in the list and is excluded from totals.", "Cancel Quotation", () => act("/status", { status: "cancelled" }, "Quotation cancelled"), true)}>
+                    Cancel Quotation
+                  </Menu.Item>
+                ) : (
+                  <Menu.Item leftSection={<IconRefresh size={16} />} onClick={() => act("/status", { status: "draft" }, "Re-opened")}>Re-open Quotation</Menu.Item>
+                ))}
+                {!readOnly && quote.status === "draft" && (
+                  <Menu.Item color="red" leftSection={<IconTrash size={16} />}
+                    onClick={() => ask(`Delete ${no}?`, "This draft is deleted permanently.", "Delete", del, true)}>
+                    Delete Draft
+                  </Menu.Item>
+                )}
+              </Menu.Dropdown>
+            </Menu>
+          )}
+        </>
+      }
+    >
       {readOnly && latestRev && (
         <Alert color="orange" variant="light" icon={<IconLock size={18} />}>
-          This revision was replaced and is kept read-only for the record.{" "}
-          <Anchor component={Link} to={`/quotes/${latestRev.id}`} fw={600}>Open the latest revision →</Anchor>
+          This revision has been superseded.{" "}
+          <Anchor component={Link} to={`/quotes/${latestRev.id}`} fw={600}>Open {quoteNo(quote!.base_number, latestRev.rev)}</Anchor>
         </Alert>
       )}
 
@@ -401,7 +453,7 @@ export function QuoteEditor() {
             <Paper p="lg">
               <Stack gap="md">
                 <CustomerPicker
-                  label="1 · Customer"
+                  label="Customer"
                   customers={customers}
                   value={h.customer_name}
                   selectedId={h.customer_id}
@@ -411,55 +463,44 @@ export function QuoteEditor() {
                   onNew={(name) => setNewCust(name)}
                 />
                 <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-                  <TextInput label="2 · Enquiry reference" placeholder="e.g. SSD2600032" value={h.enquiry_ref || ""} readOnly={readOnly} onChange={(e) => setField("enquiry_ref", e.currentTarget.value)} />
+                  <TextInput label="Enquiry Reference" value={h.enquiry_ref || ""} readOnly={readOnly} onChange={(e) => setField("enquiry_ref", e.currentTarget.value)} />
                   <Select
-                    label="3 · Salesman"
-                    placeholder="Choose"
+                    label="Salesperson"
                     leftSection={<IconUser size={16} />}
                     value={h.salesman_id ? String(h.salesman_id) : null}
                     readOnly={readOnly}
                     onChange={(v) => setField("salesman_id", v ? Number(v) : null)}
                     data={salesmen.filter((s) => s.active || s.id === h.salesman_id).map((s) => ({ value: String(s.id), label: s.name }))}
                   />
-                  <DateInput label="Date" valueFormat="DD MMM YYYY" value={h.quote_date} readOnly={readOnly} onChange={(v) => v && setField("quote_date", String(v).slice(0, 10))} />
+                  <DateInput label="Quotation Date" valueFormat="DD MMM YYYY" value={h.quote_date} readOnly={readOnly} onChange={(v) => v && setField("quote_date", String(v).slice(0, 10))} />
                 </SimpleGrid>
                 {h.customer_name && (
                   <>
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                      <Textarea label="Address (printed)" autosize minRows={2} value={h.customer_address || ""} readOnly={readOnly} onChange={(e) => setField("customer_address", e.currentTarget.value)} />
-                      <TextInput label="Kind attention" value={h.attention || ""} readOnly={readOnly} onChange={(e) => setField("attention", e.currentTarget.value)} />
+                      <Textarea label="Address" autosize minRows={2} value={h.customer_address || ""} readOnly={readOnly} onChange={(e) => setField("customer_address", e.currentTarget.value)} />
+                      <TextInput label="Attention" value={h.attention || ""} readOnly={readOnly} onChange={(e) => setField("attention", e.currentTarget.value)} />
                     </SimpleGrid>
-                    <Divider label="Terms" labelPosition="left" />
+                    <Divider label="Terms" labelPosition="left" mt={4} />
                     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                      {term("payment_terms", "Payment terms")}
-                      {term("validity", "Quote validity")}
-                      {term("delivery_terms", "Delivery terms")}
-                      {term("vat_terms", "VAT terms")}
+                      {term("payment_terms", "Payment Terms")}
+                      {term("validity", "Validity")}
+                      {term("delivery_terms", "Delivery Terms")}
+                      {term("vat_terms", "VAT Terms")}
                     </SimpleGrid>
                   </>
                 )}
               </Stack>
             </Paper>
 
-            <Stack gap={8}>
-              {!readOnly && (
-                <Paper p="sm" className="no-print" bg="maroon.0" style={{ borderStyle: "dashed", borderColor: "var(--mantine-color-maroon-4)" }}>
-                  <Group justify="space-between" gap="xs">
-                    <Text fz="sm">
-                      <Text span fw={700} c="maroon.7">4 · Paste items</Text> — copy cells from Excel or an email, or a screenshot (<Kbd size="xs">Win</Kbd>+<Kbd size="xs">Shift</Kbd>+<Kbd size="xs">S</Kbd>), and press <Kbd size="xs">Ctrl</Kbd>+<Kbd size="xs">V</Kbd> anywhere. Or drop a PDF, photo, email or Excel file on the lines.{" "}
-                      <Text span fw={700} c="maroon.7">5 · Enter rates</Text> — click a cell and type; <Kbd size="xs">Enter</Kbd> moves down.
-                    </Text>
-                    <FileButton onChange={(f) => f && onFile(f)} accept={IMPORT_ACCEPT}>
-                      {(p) => <Button {...p} size="xs" variant="white" leftSection={<IconFileImport size={14} />}>Import file</Button>}
-                    </FileButton>
-                  </Group>
-                </Paper>
-              )}
-              {quote && quote.orders.length > 0 && !readOnly && (
-                <Text fz="sm" c="dimmed" className="no-print">
-                  Orders are recorded against this quote. Changing lines here doesn't change what was ordered.
-                </Text>
-              )}
+            <Stack gap="sm">
+              <Group justify="space-between" align="center">
+                <Title order={4}>Line Items</Title>
+                {!readOnly && (
+                  <FileButton onChange={(f) => f && onFile(f)} accept={IMPORT_ACCEPT}>
+                    {(p) => <Button {...p} size="xs" variant="default" leftSection={<IconFileImport size={14} />}>Import File</Button>}
+                  </FileButton>
+                )}
+              </Group>
               <LineGrid
                 lines={lines}
                 readOnly={readOnly}
@@ -475,30 +516,30 @@ export function QuoteEditor() {
             </Stack>
 
             <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              <Textarea label="Remarks" description="Printed on the quote" autosize minRows={3} value={h.notes || ""} readOnly={readOnly} onChange={(e) => setField("notes", e.currentTarget.value)} />
-              <Textarea label="Internal notes" description="Never printed" autosize minRows={3} value={h.internal_notes || ""} readOnly={readOnly} onChange={(e) => setField("internal_notes", e.currentTarget.value)} />
+              <Textarea label="Remarks" autosize minRows={3} value={h.notes || ""} readOnly={readOnly} onChange={(e) => setField("notes", e.currentTarget.value)} />
+              <Textarea label="Internal Notes" autosize minRows={3} value={h.internal_notes || ""} readOnly={readOnly} onChange={(e) => setField("internal_notes", e.currentTarget.value)} />
             </SimpleGrid>
           </Stack>
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, lg: 3.4 }}>
-          <Stack gap="md" pos="sticky" top={16}>
+          <Stack gap="lg" pos="sticky" top={16}>
             <Paper p="lg">
-              <Text fz="xs" tt="uppercase" fw={600} c="dimmed" ff="monospace" mb="sm">Totals ({cur})</Text>
-              <Stack gap={6}>
-                <Group justify="space-between"><Text fz="sm">Subtotal · {t.count} line{t.count === 1 ? "" : "s"}</Text><Text fw={700} ff="monospace">{money(t.subtotal)}</Text></Group>
+              <Title order={5} mb="md">Totals ({cur})</Title>
+              <Stack gap={8}>
+                <Group justify="space-between"><Text fz="sm">Subtotal</Text><Text fw={600} ff="monospace">{money(t.subtotal)}</Text></Group>
                 <Group justify="space-between" wrap="nowrap">
-                  <Group gap={4} wrap="nowrap">
+                  <Group gap={6} wrap="nowrap">
                     <Text fz="sm">VAT</Text>
-                    <NumberInput size="xs" w={64} value={h.vat_rate} min={0} max={100} decimalScale={2} suffix="%" hideControls readOnly={readOnly} onChange={(v) => setField("vat_rate", Number(v) || 0)} />
+                    <NumberInput size="xs" w={64} value={h.vat_rate} min={0} max={100} decimalScale={2} suffix="%" hideControls readOnly={readOnly} onChange={(v) => setField("vat_rate", Number(v) || 0)} aria-label="VAT rate" />
                   </Group>
                   <Text ff="monospace">{money(t.vat)}</Text>
                 </Group>
                 <Divider my={4} />
-                <Group justify="space-between"><Text fw={800} ff="heading" fz="xl">Total</Text><Text fw={800} ff="heading" fz="xl">{money(t.total)}</Text></Group>
+                <Group justify="space-between"><Text fw={700} fz="lg">Total</Text><Text fw={700} fz="lg" ff="monospace">{money(t.total)}</Text></Group>
               </Stack>
               {t.missingRate > 0 && (
-                <Text c="orange.7" fz="sm" mt="sm"><IconAlertTriangle size={14} style={{ verticalAlign: -2 }} /> {t.missingRate} line{t.missingRate === 1 ? " has" : "s have"} no rate</Text>
+                <Text c="orange.7" fz="sm" mt="md"><IconAlertTriangle size={14} style={{ verticalAlign: -2 }} /> {t.missingRate} line{t.missingRate === 1 ? "" : "s"} without rate</Text>
               )}
             </Paper>
 
@@ -511,48 +552,11 @@ export function QuoteEditor() {
               />
             )}
 
-            <Paper p="md">
-              <Stack gap="xs">
-                <Button leftSection={<IconPrinter size={16} />} onClick={print} loading={saving}>Print / Save as PDF</Button>
-                <Button variant="light" color="stamp" leftSection={<IconMail size={16} />} disabled={!quote}
-                  onClick={async () => { if (dirty && !(await save())) return; setEmailOpen(true); }}>
-                  Email via Outlook
-                </Button>
-                {quote && !readOnly && (
-                  <Button variant="default" leftSection={<IconGitBranch size={16} />}
-                    onClick={() => ask(`Create ${quoteNo(quote.base_number, nextRev)}?`, "The current version is kept read-only for the record.", "Create revision", () => act("/revise", undefined, "Revision created"))}>
-                    Revise (REV {String(nextRev).padStart(2, "0")})
-                  </Button>
-                )}
-                {quote && <Button variant="default" leftSection={<IconCopy size={16} />} onClick={() => act("/duplicate", undefined, "Copied to a new quote")}>Duplicate as new quote</Button>}
-                {quote && !readOnly && (
-                  <Group grow gap="xs">
-                    {quote.status !== "cancelled" ? (
-                      <Button variant="subtle" color="red" leftSection={<IconBan size={16} />}
-                        onClick={() => ask("Mark as cancelled?", "It stays in the list but is left out of the Home totals.", "Mark cancelled", () => act("/status", { status: "cancelled" }, "Marked cancelled"), true)}>
-                        Cancel quote
-                      </Button>
-                    ) : (
-                      <Button variant="subtle" leftSection={<IconRefresh size={16} />} onClick={() => act("/status", { status: "draft" }, "Re-opened")}>Re-open</Button>
-                    )}
-                    {quote.status === "draft" && (
-                      <Tooltip label="Delete this draft">
-                        <ActionIcon variant="subtle" color="red" size="lg" style={{ flexGrow: 0 }} aria-label="Delete draft"
-                          onClick={() => ask(`Delete ${quoteNo(quote.base_number, quote.rev)}?`, "This draft is deleted permanently.", "Delete", del, true)}>
-                          <IconTrash size={18} />
-                        </ActionIcon>
-                      </Tooltip>
-                    )}
-                  </Group>
-                )}
-              </Stack>
-            </Paper>
-
             <Workings quoteId={quote?.id ?? null} readOnly={readOnly} version={workingsVer} />
 
             {quote && quote.revisions.length > 1 && (
-              <Paper p="md">
-                <Title order={5} mb="sm">Revisions</Title>
+              <Paper p="lg">
+                <Title order={5} mb="md">Revision History</Title>
                 <Timeline active={quote.revisions.findIndex((r) => r.id === quote.id)} bulletSize={14} lineWidth={2}>
                   {quote.revisions.map((r) => (
                     <Timeline.Item key={r.id} title={r.id === quote.id ? <b>{quoteNo(quote.base_number, r.rev)}</b> : <Anchor component={Link} to={`/quotes/${r.id}`} fz="sm">{quoteNo(quote.base_number, r.rev)}</Anchor>}>
@@ -564,8 +568,8 @@ export function QuoteEditor() {
             )}
 
             {quote && quote.emails.length > 0 && (
-              <Paper p="md">
-                <Title order={5} mb="sm">Email log</Title>
+              <Paper p="lg">
+                <Title order={5} mb="md">Email Log</Title>
                 <Stack gap="xs">
                   {quote.emails.map((m) => (
                     <div key={m.id}>
@@ -612,6 +616,6 @@ export function QuoteEditor() {
       {emailOpen && quote && (
         <EmailDialog quote={quote} onClose={() => setEmailOpen(false)} onLogged={(q) => { applyQuote(q); setEmailOpen(false); }} onPrint={() => navigate(`/quotes/${quote.id}/print`)} />
       )}
-    </Stack>
+    </Page>
   );
 }

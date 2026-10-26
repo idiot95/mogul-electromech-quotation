@@ -22,11 +22,11 @@ interface Summary {
 
 function Bars({ rows }: { rows: { name: string; amount: number; quotes: number }[] }) {
   const max = Math.max(1, ...rows.map((r) => r.amount));
-  if (!rows.length) return <Text c="dimmed" fz="sm">No quotes in this period yet.</Text>;
+  if (!rows.length) return <Text c="dimmed" fz="sm">No data for this period.</Text>;
   return (
     <Stack gap={10}>
       {rows.map((r) => (
-        <div key={r.name} title={`${r.quotes} quote(s)`}>
+        <div key={r.name} title={`${r.quotes} quotation(s)`}>
           <Group justify="space-between" gap="xs" wrap="nowrap" mb={3}>
             <Text fz="sm" truncate>{r.name}</Text>
             <Text fz="sm" ff="monospace" c="dimmed">{money0(r.amount)}</Text>
@@ -40,12 +40,12 @@ function Bars({ rows }: { rows: { name: string; amount: number; quotes: number }
 
 function Kpi(props: { label: string; value: string; sub?: string; icon: typeof IconCash; color?: string }) {
   return (
-    <Paper p="md">
+    <Paper p="lg">
       <Group justify="space-between" align="flex-start" wrap="nowrap">
         <div>
-          <Text fz="xs" tt="uppercase" fw={600} c="dimmed" ff="monospace">{props.label}</Text>
-          <Text fz={28} fw={800} ff="heading" mt={4} c={props.color}>{props.value}</Text>
-          {props.sub && <Text fz="xs" c="dimmed">{props.sub}</Text>}
+          <Text fz="sm" fw={600} c="dimmed">{props.label}</Text>
+          <Text fz={26} fw={700} ff="heading" mt={6} c={props.color}>{props.value}</Text>
+          {props.sub && <Text fz="xs" c="dimmed" mt={2}>{props.sub}</Text>}
         </div>
         <ThemeIcon variant="light" size="lg" radius="md"><props.icon size={20} /></ThemeIcon>
       </Group>
@@ -55,7 +55,7 @@ function Kpi(props: { label: string; value: string; sub?: string; icon: typeof I
 
 const ago = (iso: string) => {
   const d = Math.round((Date.parse(todayUAE()) - Date.parse(iso)) / 86400_000);
-  return d >= 14 ? `${Math.floor(d / 7)} weeks ago` : `${d} days ago`;
+  return d >= 14 ? `${Math.floor(d / 7)} weeks` : `${d} days`;
 };
 
 export function QuotesHomeWidget() {
@@ -74,26 +74,24 @@ export function QuotesHomeWidget() {
   return (
     <>
       <Group justify="space-between">
-        <Title order={2}>Home</Title>
-        <SegmentedControl value={days} onChange={setDays} data={[{ value: "7", label: "1 week" }, { value: "28", label: "4 weeks" }, { value: "91", label: "3 months" }, { value: "365", label: "12 months" }]} />
+        <Title order={2}>Dashboard</Title>
+        <SegmentedControl value={days} onChange={setDays} data={[{ value: "7", label: "7 Days" }, { value: "28", label: "4 Weeks" }, { value: "91", label: "3 Months" }, { value: "365", label: "12 Months" }]} />
       </Group>
       <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }}>
-        <Kpi label="Quoted · excl. VAT" value={`AED ${money0(s?.kpi.amount ?? 0)}`} sub={s ? `${s.kpi.quotes} quote${s.kpi.quotes === 1 ? "" : "s"} · ${s.kpi.customers} customer${s.kpi.customers === 1 ? "" : "s"}` : undefined} icon={IconCash} />
-        <Kpi label="Orders received" value={`AED ${money0(s?.received.amount ?? 0)}`} sub={s ? `${s.received.orders} PO${s.received.orders === 1 ? "" : "s"} in this period` : undefined} icon={IconTrophy} color="green.8" />
-        <Kpi label="Win rate" value={winRate == null ? "–" : `${winRate}%`} sub={s ? `${won} won · ${lost} lost · of quotes decided` : undefined} icon={IconTarget} />
-        <Kpi label="Awaiting reply" value={String(waiting)} sub="sent or printed, no answer yet" icon={IconHourglass} />
+        <Kpi label="Quoted Value excl. VAT" value={`AED ${money0(s?.kpi.amount ?? 0)}`} sub={s ? `${s.kpi.quotes} quotation${s.kpi.quotes === 1 ? "" : "s"} · ${s.kpi.customers} customer${s.kpi.customers === 1 ? "" : "s"}` : undefined} icon={IconCash} />
+        <Kpi label="Orders Received excl. VAT" value={`AED ${money0(s?.received.amount ?? 0)}`} sub={s ? `${s.received.orders} purchase order${s.received.orders === 1 ? "" : "s"}` : undefined} icon={IconTrophy} color="green.8" />
+        <Kpi label="Win Rate" value={winRate == null ? "–" : `${winRate}%`} sub={s ? `${won} won · ${lost} lost` : undefined} icon={IconTarget} />
+        <Kpi label="Awaiting Response" value={String(waiting)} icon={IconHourglass} />
       </SimpleGrid>
       {s && s.followUp.length > 0 && (
         <Paper p="lg">
           <Group justify="space-between" mb="sm">
-            <div>
-              <Title order={4}>Follow up</Title>
-              <Text fz="sm" c="dimmed">Sent more than a week ago and no answer yet: largest first</Text>
-            </div>
-            <Anchor component={Link} to="/quotes?status=open" fz="sm">All awaiting reply →</Anchor>
+            <Title order={4}>Follow-Up Required</Title>
+            <Anchor component={Link} to="/quotes?status=open" fz="sm">View All</Anchor>
           </Group>
           <ScrollArea>
             <Table highlightOnHover miw={600}>
+              <Table.Thead><Table.Tr><Table.Th>Quotation No.</Table.Th><Table.Th>Customer</Table.Th><Table.Th>Salesperson</Table.Th><Table.Th>Age</Table.Th><Table.Th ta="right">Value excl. VAT (AED)</Table.Th></Table.Tr></Table.Thead>
               <Table.Tbody>
                 {s.followUp.map((q) => (
                   <Table.Tr key={q.id}>
@@ -110,18 +108,18 @@ export function QuotesHomeWidget() {
         </Paper>
       )}
       <SimpleGrid cols={{ base: 1, md: 2 }}>
-        <Paper p="lg"><Title order={4} mb="md">By customer (AED)</Title>{s && <Bars rows={s.byCustomer} />}</Paper>
-        <Paper p="lg"><Title order={4} mb="md">By salesman (AED)</Title>{s && <Bars rows={s.bySalesman} />}</Paper>
-        {s && s.lostWhy.length > 0 && <Paper p="lg"><Title order={4} mb="md">Why quotes were lost (AED)</Title><Bars rows={s.lostWhy} /></Paper>}
+        <Paper p="lg"><Title order={4} mb="lg">Quoted Value by Customer (AED)</Title>{s && <Bars rows={s.byCustomer} />}</Paper>
+        <Paper p="lg"><Title order={4} mb="lg">Quoted Value by Salesperson (AED)</Title>{s && <Bars rows={s.bySalesman} />}</Paper>
+        {s && s.lostWhy.length > 0 && <Paper p="lg"><Title order={4} mb="lg">Lost Value by Reason (AED)</Title><Bars rows={s.lostWhy} /></Paper>}
       </SimpleGrid>
       <Paper p="lg">
         <Group justify="space-between" mb="sm">
-          <Title order={4}>Largest quotes</Title>
-          <Anchor component={Link} to="/quotes" fz="sm">All quotes →</Anchor>
+          <Title order={4}>Largest Quotations</Title>
+          <Anchor component={Link} to="/quotes" fz="sm">View All</Anchor>
         </Group>
         <ScrollArea>
           <Table highlightOnHover miw={600}>
-            <Table.Thead><Table.Tr><Table.Th>No.</Table.Th><Table.Th>Customer</Table.Th><Table.Th>Salesman</Table.Th><Table.Th>Status</Table.Th><Table.Th ta="right">AED (excl. VAT)</Table.Th></Table.Tr></Table.Thead>
+            <Table.Thead><Table.Tr><Table.Th>Quotation No.</Table.Th><Table.Th>Customer</Table.Th><Table.Th>Salesperson</Table.Th><Table.Th>Status</Table.Th><Table.Th ta="right">Value excl. VAT (AED)</Table.Th></Table.Tr></Table.Thead>
             <Table.Tbody>
               {s?.largest.map((q) => (
                 <Table.Tr key={q.id}>
@@ -135,7 +133,7 @@ export function QuotesHomeWidget() {
             </Table.Tbody>
           </Table>
         </ScrollArea>
-        {s && !s.largest.length && <Text c="dimmed" fz="sm">Nothing yet. <Anchor component={Link} to="/quotes/new">Create the first quote</Anchor>.</Text>}
+        {s && !s.largest.length && <Text c="dimmed" fz="sm">No quotations for this period.</Text>}
       </Paper>
     </>
   );

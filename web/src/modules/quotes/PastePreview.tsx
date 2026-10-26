@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Button, Checkbox, Flex, Group, Image, Kbd, List, Modal, NativeSelect, Paper, ScrollArea, SegmentedControl, Stack, Table, Text, Tooltip } from "@mantine/core";
+import { Alert, Badge, Button, Checkbox, Flex, Group, Image, List, Modal, NativeSelect, Paper, ScrollArea, SegmentedControl, Stack, Table, Text, Tooltip } from "@mantine/core";
 import { IconCheck, IconClipboardText, IconEye, IconHash } from "@tabler/icons-react";
 import { analysePaste, type PasteInput, type ParsedItem, type Role } from "../../../../shared/paste-engine";
 import { qtyFmt } from "../../lib/format";
@@ -57,14 +57,14 @@ export function PastePreview(props: {
       title={
         <Group gap="xs">
           <IconClipboardText size={20} />
-          <Text fw={700} ff="heading" fz="lg">{props.previews?.length ? "Import preview" : "Paste preview"}</Text>
+          <Text fw={700} ff="heading" fz="lg">Import Preview</Text>
         </Group>
       }
     >
       <Flex direction={{ base: "column", md: "row" }} gap="lg" align="flex-start">
       {props.previews && props.previews.length > 0 && (
         <Paper p={0} w={{ base: "100%", md: "42%" }} style={{ flexShrink: 0, overflow: "hidden" }}>
-          <Text fz="xs" tt="uppercase" fw={600} c="dimmed" ff="monospace" px="sm" py={6} bg="gray.0">Original</Text>
+          <Text fz="sm" fw={600} px="sm" py={8} bg="gray.0">Original Document</Text>
           <ScrollArea.Autosize mah="72vh">
             <Stack gap={4} p={4}>
               {props.previews.map((src, i) => <Image key={i} src={src} alt={`Page ${i + 1}`} radius="xs" />)}
@@ -75,7 +75,7 @@ export function PastePreview(props: {
       <Stack gap="md" style={{ flex: 1, minWidth: 0 }} w="100%">
         {props.ocr && (
           <Alert color="orange" variant="light" icon={<IconEye size={18} />} p="xs">
-            Read from an image: check the descriptions and quantities against the original before adding.
+            Extracted by OCR. Verify against the original.
           </Alert>
         )}
         <Group gap="xs">
@@ -89,14 +89,14 @@ export function PastePreview(props: {
             <Checkbox
               checked={useEnq}
               onChange={(e) => setUseEnq(e.currentTarget.checked)}
-              label={<>Enquiry reference found: <b>{res.enquiry}</b> — fill the Enquiry ref field</>}
+              label={<>Set Enquiry Reference to <b>{res.enquiry}</b></>}
             />
           </Alert>
         )}
 
         {res.cols.length > 0 && (
           <div>
-            <Text fz="xs" tt="uppercase" fw={600} c="dimmed" ff="monospace" mb={6}>Column mapping · change any</Text>
+            <Text fz="sm" fw={600} mb={8}>Column Mapping</Text>
             <Group gap="xs" align="flex-start">
               {res.cols.map((c, i) => (
                 <Paper key={i} p={6} w={150} bg={c.role === "ignore" ? "gray.0" : "maroon.0"} style={{ borderColor: c.role === "ignore" ? undefined : "var(--mantine-color-maroon-3)" }}>
@@ -142,7 +142,6 @@ export function PastePreview(props: {
           </Table>
         </ScrollArea.Autosize>
 
-        <Text fz="xs" c="dimmed">Rates are typed in after adding. Underlined quantities weren't found in the paste and were set to 1.</Text>
 
         <Group justify="space-between">
           {props.hasLines ? (
@@ -151,15 +150,15 @@ export function PastePreview(props: {
               value={mode}
               onChange={(v) => setMode(v as PasteMode)}
               data={[
-                { value: "append", label: "Add after existing" },
-                ...(props.canInsert ? [{ value: "insert", label: "Insert at cursor" }] : []),
-                { value: "replace", label: "Replace all lines" },
+                { value: "append", label: "Append" },
+                ...(props.canInsert ? [{ value: "insert", label: "Insert at Selection" }] : []),
+                { value: "replace", label: "Replace All" },
               ]}
             />
           ) : <span />}
           <Group gap="sm">
             <Button variant="default" onClick={props.onCancel}>Cancel</Button>
-            <Button disabled={!count} onClick={confirm} rightSection={<Kbd size="xs">Enter</Kbd>}>
+            <Button disabled={!count} onClick={confirm}>
               Add {count} line{count === 1 ? "" : "s"}
             </Button>
           </Group>

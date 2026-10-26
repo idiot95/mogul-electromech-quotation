@@ -7,7 +7,7 @@ export const STATUS_LABEL: Record<QuoteStatus, string> = {
   printed: "Printed",
   emailed: "Sent",
   won: "Won",
-  partly_won: "Partly won",
+  partly_won: "Partly Won",
   lost: "Lost",
   cancelled: "Cancelled",
 };

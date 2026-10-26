@@ -12,7 +12,7 @@ body { background: var(--mantine-color-gray-0); }
 .lg-wrap { overflow-x: auto; border: 1px solid var(--mantine-color-gray-3); border-radius: var(--mantine-radius-md); background: var(--mantine-color-white); outline: none; }
 .lg-wrap:focus-visible { border-color: var(--mantine-color-stamp-6); }
 .lg { width: 100%; border-collapse: collapse; font-size: var(--mantine-font-size-sm); min-width: 760px; }
-.lg th { font: 600 11px var(--mantine-font-family-monospace); letter-spacing: 0.06em; text-transform: uppercase; color: var(--mantine-color-dimmed); background: var(--mantine-color-gray-0); padding: 9px 8px; border-bottom: 1px solid var(--mantine-color-gray-3); text-align: left; white-space: nowrap; }
+.lg th { font: 600 13px var(--mantine-font-family); color: var(--mantine-color-dark-6); background: var(--mantine-color-gray-0); padding: 10px 9px; border-bottom: 1px solid var(--mantine-color-gray-3); text-align: left; white-space: nowrap; }
 .lg th.r { text-align: right; }
 .lg td { border-bottom: 1px solid var(--mantine-color-gray-2); padding: 0; vertical-align: top; }
 .lg td.gc { border-right: 1px solid var(--mantine-color-gray-1); cursor: cell; user-select: none; position: relative; }

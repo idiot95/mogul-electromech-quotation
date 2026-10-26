@@ -67,21 +67,21 @@ export function Shell() {
           ) : null,
         )}
         <AppShell.Section grow component={ScrollArea}>
-          {link("/", "Home", IconHome, true)}
+          {link("/", "Dashboard", IconHome, true)}
           {modules.flatMap((m) => m.nav.map((n) => link(n.path, n.label, ICONS[n.path] || IconFileText)))}
-          <Text fz={11} fw={600} tt="uppercase" c="dimmed" lts={1} px="sm" pt="lg" pb={6}>Records & setup</Text>
+          <Text fz={11} fw={600} tt="uppercase" c="dimmed" lts={1} px="sm" pt="lg" pb={6}>Administration</Text>
           {link("/customers", "Customers", IconUsers)}
           {link("/settings", "Settings", IconSettings)}
         </AppShell.Section>
         <Group px={6} pt="sm" gap={6} style={{ borderTop: "1px solid var(--mantine-color-gray-2)" }}>
-          {env && <Badge variant="dot" color={env === "production" ? "teal" : "yellow.7"} size="sm">{env === "production" ? "Live system" : `${env} · test data`}</Badge>}
+          {env && <Badge variant="dot" color={env === "production" ? "teal" : "yellow.7"} size="sm">{env === "production" ? "Production" : env === "staging" ? "Staging" : "Local"}</Badge>}
         </Group>
       </AppShell.Navbar>
 
       <AppShell.Main bg="gray.0">
         {staging && (
           <Text ta="center" fz={12} fw={600} ff="monospace" bg="yellow.4" c="dark.8" py={4} mx="calc(var(--mantine-spacing-lg) * -1)" mt="calc(var(--mantine-spacing-lg) * -1)" mb="md" className="no-print">
-            {env.toUpperCase()} · test data only · not the live system
+            {env === "staging" ? "Staging Environment" : "Local Environment"}
           </Text>
         )}
         <Box maw={1440} mx="auto">

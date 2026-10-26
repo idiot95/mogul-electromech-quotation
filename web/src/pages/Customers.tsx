@@ -35,19 +35,20 @@ export function CustomersPage() {
 
   return (
     <Page
+      crumbs={[{ label: "Dashboard", to: "/" }]}
       title="Customers"
       actions={
         <>
           <FileButton onChange={onFile} accept=".xlsx,.xls,.csv">
-            {(p) => <Button {...p} variant="default" leftSection={<IconFileImport size={16} />}>Import Excel / CSV</Button>}
+            {(p) => <Button {...p} variant="default" leftSection={<IconFileImport size={16} />}>Import from Excel</Button>}
           </FileButton>
-          <Button leftSection={<IconPlus size={16} />} onClick={() => setEdit("new")}>New customer</Button>
+          <Button leftSection={<IconPlus size={16} />} onClick={() => setEdit("new")}>New Customer</Button>
         </>
       }
     >
       <Group>
-        <TextInput leftSection={<IconSearch size={16} />} placeholder="Search name, email or contact…" value={q} onChange={(e) => setQ(e.currentTarget.value)} w={360} maw="100%" />
-        <Checkbox label="Show inactive" checked={showAll} onChange={(e) => setShowAll(e.currentTarget.checked)} />
+        <TextInput leftSection={<IconSearch size={16} />} placeholder="Search" value={q} onChange={(e) => setQ(e.currentTarget.value)} w={360} maw="100%" />
+        <Checkbox label="Include Inactive" checked={showAll} onChange={(e) => setShowAll(e.currentTarget.checked)} />
       </Group>
       <Paper p={0}>
         <ScrollArea>
@@ -56,11 +57,11 @@ export function CustomersPage() {
               <Table.Tr>
                 <Table.Th>Customer</Table.Th>
                 <Table.Th>Contact</Table.Th>
-                <Table.Th>Payment terms</Table.Th>
+                <Table.Th>Payment Terms</Table.Th>
                 <Table.Th>Validity</Table.Th>
-                <Table.Th>Delivery</Table.Th>
-                <Table.Th ta="right">Quotes</Table.Th>
-                <Table.Th>Last quote</Table.Th>
+                <Table.Th>Delivery Terms</Table.Th>
+                <Table.Th ta="right">Quotations</Table.Th>
+                <Table.Th>Last Quotation</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -118,6 +119,11 @@ function mapCustomerRows(raw: string[][]): Record<string, string>[] {
   return out;
 }
 
+const COL_LABEL: Record<string, string> = {
+  name: "Name", address: "Address", contact_person: "Contact Person", email: "Email", phone: "Phone", trn: "TRN",
+  payment_terms: "Payment Terms", validity: "Validity", delivery_terms: "Delivery Terms",
+};
+
 function ImportDialog(props: { rows: Record<string, string>[]; onClose: () => void; onDone: () => void }) {
   const { toast } = useApp();
   const [busy, setBusy] = useState(false);
@@ -135,15 +141,11 @@ function ImportDialog(props: { rows: Record<string, string>[]; onClose: () => vo
   }
   const cols = ["name", "address", "contact_person", "email", "phone", "trn", "payment_terms", "validity", "delivery_terms"];
   return (
-    <Modal opened onClose={props.onClose} size="90%" title={<Text fw={700} ff="heading" fz="lg">Import {props.rows.length} customers</Text>}>
+    <Modal opened onClose={props.onClose} size="90%" title={<Text fw={700} ff="heading" fz="lg">Import Customers ({props.rows.length})</Text>}>
       <Stack>
-        <Text c="dimmed" fz="sm">
-          Columns are matched by header name (Name / Customer / Ledger, Address, Contact, Email, Phone, TRN, Payment, Validity, Delivery).
-          Customers whose name already exists are skipped.
-        </Text>
         <ScrollArea h="55vh">
           <Table striped withTableBorder fz="sm">
-            <Table.Thead><Table.Tr>{cols.map((c) => <Table.Th key={c} tt="capitalize">{c.replace("_", " ")}</Table.Th>)}</Table.Tr></Table.Thead>
+            <Table.Thead><Table.Tr>{cols.map((c) => <Table.Th key={c}>{COL_LABEL[c]}</Table.Th>)}</Table.Tr></Table.Thead>
             <Table.Tbody>
               {props.rows.slice(0, 300).map((r, i) => (
                 <Table.Tr key={i}>{cols.map((c) => <Table.Td key={c} style={{ whiteSpace: "pre-line" }}>{r[c]}</Table.Td>)}</Table.Tr>

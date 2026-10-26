@@ -119,14 +119,14 @@ export function OrderDialog(props: { quote: Quote; order?: Order; onClose: () =>
       onClose={props.onClose}
       size={1100}
       fullScreen={small}
-      title={<Text fw={700} ff="heading" fz="lg">{order ? "Edit order" : "We got the order"} · {quoteNo(quote.base_number, quote.rev)}</Text>}
+      title={<Text fw={700} ff="heading" fz="lg">{order ? "Edit Purchase Order" : "Record Purchase Order"} · {quoteNo(quote.base_number, quote.rev)}</Text>}
     >
       <Stack gap="md">
         <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-          <TextInput label="Customer PO number" placeholder="e.g. 4500123456" value={poNumber} onChange={(e) => setPoNumber(e.currentTarget.value)} data-autofocus />
-          <DateInput label="PO date" valueFormat="DD MMM YYYY" value={poDate} onChange={(v) => v && setPoDate(String(v).slice(0, 10))} />
+          <TextInput label="PO Number" value={poNumber} onChange={(e) => setPoNumber(e.currentTarget.value)} data-autofocus />
+          <DateInput label="PO Date" valueFormat="DD MMM YYYY" value={poDate} onChange={(v) => v && setPoDate(String(v).slice(0, 10))} />
           <div>
-            <Text fz="sm" fw={500} mb={4}>PO copy (optional)</Text>
+            <Text fz="sm" fw={500} mb={4}>PO Document</Text>
             {file ? (
               <Group gap={6} wrap="nowrap" h={36}>
                 <IconPaperclip size={16} />
@@ -141,18 +141,17 @@ export function OrderDialog(props: { quote: Quote; order?: Order; onClose: () =>
               <Dropzone onDrop={(f) => f[0] && setFile(f[0])} maxSize={8 * 1024 * 1024} multiple={false} accept={["application/pdf", "image/*"]} p={6} radius="sm">
                 <Group justify="center" gap={6} style={{ pointerEvents: "none" }}>
                   <IconFileUpload size={18} color="var(--mantine-color-dimmed)" />
-                  <Text fz="sm" c="dimmed">Drop the PDF or photo</Text>
+                  <Text fz="sm" c="dimmed">Attach PDF or Image</Text>
                 </Group>
               </Dropzone>
             )}
           </div>
         </SimpleGrid>
 
-        <Group justify="space-between" gap="xs">
-          <Text fz="sm" c="dimmed">Tick what was ordered. Change the qty or rate where the PO differs from the quote.</Text>
+        <Group justify="flex-end" gap="xs">
           <Group gap={6}>
-            <Button size="compact-sm" variant="default" onClick={() => all(true)}>Tick all</Button>
-            <Button size="compact-sm" variant="default" onClick={() => all(false)}>Clear</Button>
+            <Button size="compact-sm" variant="default" onClick={() => all(true)}>Select All</Button>
+            <Button size="compact-sm" variant="default" onClick={() => all(false)}>Clear All</Button>
           </Group>
         </Group>
 
@@ -163,11 +162,11 @@ export function OrderDialog(props: { quote: Quote; order?: Order; onClose: () =>
                 <Table.Tr>
                   <Table.Th w={36} />
                   <Table.Th>Item</Table.Th>
-                  <Table.Th ta="right" w={80}>Quoted</Table.Th>
-                  {anyBefore && <Table.Th ta="right" w={90}>Ordered before</Table.Th>}
-                  <Table.Th ta="right" w={110}>Order qty</Table.Th>
-                  <Table.Th ta="right" w={120}>PO rate ({cur})</Table.Th>
-                  <Table.Th ta="right" w={120}>Amount</Table.Th>
+                  <Table.Th ta="right" w={100}>Quoted Qty</Table.Th>
+                  {anyBefore && <Table.Th ta="right" w={100}>Previously Ordered</Table.Th>}
+                  <Table.Th ta="right" w={110}>Order Qty</Table.Th>
+                  <Table.Th ta="right" w={120}>PO Rate ({cur})</Table.Th>
+                  <Table.Th ta="right" w={120}>Amount ({cur})</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -192,7 +191,7 @@ export function OrderDialog(props: { quote: Quote; order?: Order; onClose: () =>
                           value={r.qty}
                           onChange={(e) => set(i, { qty: e.currentTarget.value })}
                           styles={{ input: { textAlign: "right", fontFamily: "var(--mantine-font-family-monospace)" } }}
-                          error={over ? "more than quoted" : undefined}
+                          error={over ? "Exceeds quoted qty" : undefined}
                         />
                       </Table.Td>
                       <Table.Td>
@@ -203,7 +202,7 @@ export function OrderDialog(props: { quote: Quote; order?: Order; onClose: () =>
                           value={r.rate}
                           onChange={(e) => set(i, { rate: e.currentTarget.value })}
                           styles={{ input: { textAlign: "right", fontFamily: "var(--mantine-font-family-monospace)" } }}
-                          description={rateChanged ? `quoted ${money(r.quotedRate)}` : undefined}
+                          description={rateChanged ? `Quoted ${money(r.quotedRate)}` : undefined}
                           inputWrapperOrder={["input", "description"]}
                         />
                       </Table.Td>
@@ -216,19 +215,18 @@ export function OrderDialog(props: { quote: Quote; order?: Order; onClose: () =>
           </ScrollArea.Autosize>
         </Paper>
 
-        <Textarea label="Note (optional)" placeholder="e.g. delivery split in two lots, revised rate agreed by phone" autosize minRows={1} value={note} onChange={(e) => setNote(e.currentTarget.value)} />
+        <Textarea label="Notes" autosize minRows={1} value={note} onChange={(e) => setNote(e.currentTarget.value)} />
 
         <Group justify="space-between" wrap="wrap" gap="sm">
           <div>
-            <Text fw={800} ff="heading" fz="xl">{cur} {money(value)}</Text>
-            <Text fz="sm" c="dimmed">
-              {picked.length} of {rows.length} line{rows.length === 1 ? "" : "s"} · {pct}% of the quoted {money(quote.subtotal)} · excl. VAT
-            </Text>
+            <Text fz="xs" c="dimmed" fw={600}>Order Value (excl. VAT)</Text>
+            <Text fw={700} fz="xl">{cur} {money(value)}</Text>
+            <Text fz="sm" c="dimmed">{picked.length} of {rows.length} lines · {pct}% of quotation</Text>
           </div>
           <Group gap="sm">
             <Button variant="default" onClick={props.onClose}>Cancel</Button>
             <Button color="green" size="md" leftSection={<IconCheck size={18} />} loading={busy} onClick={save} disabled={!picked.length}>
-              {order ? "Save changes" : "Save order"}
+              Save
             </Button>
           </Group>
         </Group>

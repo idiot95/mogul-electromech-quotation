@@ -267,7 +267,7 @@ export const quotesApi = new Hono<AppContext>()
       ).bind(since),
       db.prepare(`SELECT q.status, COUNT(*) AS quotes, SUM(q.subtotal) AS amount ${base} GROUP BY q.status`).bind(since),
       db.prepare(
-        `SELECT COALESCE(s.name, '—') AS name, COUNT(*) AS quotes, SUM(q.subtotal) AS amount
+        `SELECT COALESCE(s.name, 'Unassigned') AS name, COUNT(*) AS quotes, SUM(q.subtotal) AS amount
          FROM q_quotes q LEFT JOIN salesmen s ON s.id = q.salesman_id
          WHERE q.superseded_by IS NULL AND q.status != 'cancelled' AND q.quote_date >= ?
          GROUP BY s.name ORDER BY amount DESC`,

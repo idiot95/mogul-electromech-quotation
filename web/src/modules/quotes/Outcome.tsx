@@ -36,8 +36,8 @@ export function Outcome(props: { quote: Quote; readOnly: boolean; beforeAction: 
   const delOrder = (o: Order) =>
     modals.openConfirmModal({
       title: `Delete ${poLabel(o.po_number)}?`,
-      children: <Text fz="sm">The order and its attached PO copy are removed. The quote status is worked out again from the orders left.</Text>,
-      labels: { confirm: "Delete order", cancel: "Keep" },
+      children: <Text fz="sm">The purchase order and its document will be deleted.</Text>,
+      labels: { confirm: "Delete", cancel: "Cancel" },
       confirmProps: { color: "red" },
       onConfirm: () => call(api.del<Quote>(`/quotes/${quote.id}/orders/${o.id}`), "Order deleted"),
     });
@@ -50,21 +50,21 @@ export function Outcome(props: { quote: Quote; readOnly: boolean; beforeAction: 
       {quote.status === "lost" ? (
         <Stack gap="xs">
           <Group justify="space-between">
-            <Title order={5}>Lost</Title>
+            <Title order={5}>Order Status · Lost</Title>
             {!readOnly && <Button size="compact-sm" variant="subtle" leftSection={<IconRefresh size={14} />} onClick={() => call(api.post<Quote>(`/quotes/${quote.id}/reopen`), "Re-opened")}>Re-open</Button>}
           </Group>
-          <Text fz="sm"><b>Reason:</b> {quote.lost_reason || "Other"}</Text>
+          <Text fz="sm">Reason: {quote.lost_reason || "Other"}</Text>
           {quote.lost_note && <Text fz="sm" c="dimmed" style={{ whiteSpace: "pre-line" }}>{quote.lost_note}</Text>}
         </Stack>
       ) : orders.length ? (
         <Stack gap="sm">
           <Group justify="space-between" align="baseline">
-            <Title order={5}>{quote.status === "won" ? "Won" : "Partly won"}</Title>
-            <Text fz="sm" c="dimmed">{pct}% of quote</Text>
+            <Title order={5}>Order Status · {quote.status === "won" ? "Won" : "Partly Won"}</Title>
+            <Text fz="sm" c="dimmed">{pct}%</Text>
           </Group>
           <div>
             <Text fw={800} ff="heading" fz="xl">{cur} {money(ordered)}</Text>
-            <Text fz="xs" c="dimmed">ordered of {money(quote.subtotal)} quoted · excl. VAT</Text>
+            <Text fz="xs" c="dimmed">of {cur} {money(quote.subtotal)} quoted (excl. VAT)</Text>
             <Progress value={pct} color="green" size="sm" radius="xl" mt={8} />
           </div>
           <Stack gap={6}>
@@ -92,18 +92,15 @@ export function Outcome(props: { quote: Quote; readOnly: boolean; beforeAction: 
           </Stack>
           {!readOnly && (
             <Button variant={quote.status === "won" ? "default" : "light"} color="green" leftSection={<IconPlus size={16} />} onClick={() => open(() => setOrderDlg({}))}>
-              {quote.status === "won" ? "Add another PO" : "Record another PO"}
+              Add Purchase Order
             </Button>
           )}
         </Stack>
       ) : (
         <Stack gap="sm">
-          <div>
-            <Title order={5}>Customer's decision</Title>
-            <Text fz="sm" c="dimmed">Got a PO, or a no? Record it here.</Text>
-          </div>
-          <Button color="green" size="md" leftSection={<IconTrophy size={18} />} onClick={() => open(() => setOrderDlg({}))}>We got the order</Button>
-          <Button variant="default" leftSection={<IconThumbDown size={16} />} onClick={() => open(() => setLostOpen(true))}>Lost</Button>
+          <Title order={5}>Order Status</Title>
+          <Button color="green" leftSection={<IconTrophy size={18} />} onClick={() => open(() => setOrderDlg({}))}>Record Order</Button>
+          <Button variant="default" leftSection={<IconThumbDown size={16} />} onClick={() => open(() => setLostOpen(true))}>Mark as Lost</Button>
         </Stack>
       )}
 
@@ -128,14 +125,15 @@ function LostDialog(props: { onClose: () => void; onSave: (reason: string, note:
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   return (
-    <Modal opened onClose={props.onClose} title={<Text fw={700} ff="heading" fz="lg">Why was it lost?</Text>}>
+    <Modal opened onClose={props.onClose} title={<Text fw={700} ff="heading" fz="lg">Mark as Lost</Text>}>
       <Stack gap="md">
+        <Text fz="sm" fw={500} mb={-8}>Reason</Text>
         <Chip.Group value={reason} onChange={(v) => setReason(v as string)}>
           <Group gap={8}>
             {LOST_REASONS.map((r) => <Chip key={r} value={r} variant="outline">{r}</Chip>)}
           </Group>
         </Chip.Group>
-        <Textarea label="Note (optional)" placeholder="e.g. competitor quoted 12% lower, customer bought ABB" autosize minRows={2} value={note} onChange={(e) => setNote(e.currentTarget.value)} />
+        <Textarea label="Notes" autosize minRows={2} value={note} onChange={(e) => setNote(e.currentTarget.value)} />
         <Group justify="flex-end">
           <Button variant="default" onClick={props.onClose}>Cancel</Button>
           <Button
@@ -148,7 +146,7 @@ function LostDialog(props: { onClose: () => void; onSave: (reason: string, note:
               setBusy(false);
             }}
           >
-            Mark lost
+            Mark as Lost
           </Button>
         </Group>
       </Stack>

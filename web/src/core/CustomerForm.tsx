@@ -39,31 +39,31 @@ export function CustomerForm(props: { customer?: Customer | null; initialName?: 
   }
 
   return (
-    <Modal opened onClose={props.onClose} title={<Text fw={700} ff="heading" fz="lg">{props.customer ? "Edit customer" : "New customer"}</Text>} size="lg">
+    <Modal opened onClose={props.onClose} title={<Text fw={700} ff="heading" fz="lg">{props.customer ? "Edit Customer" : "New Customer"}</Text>} size="lg">
       <Stack gap="sm">
-        <TextInput label="Customer name" required data-autofocus {...f("name")} />
-        <Textarea label="Address" description='Printed under "To,"' autosize minRows={2} {...f("address")} />
+        <TextInput label="Customer Name" required data-autofocus {...f("name")} />
+        <Textarea label="Address" autosize minRows={2} {...f("address")} />
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-          <TextInput label="Contact person" {...f("contact_person")} />
+          <TextInput label="Contact Person" {...f("contact_person")} />
           <TextInput label="Email" type="email" {...f("email")} />
           <TextInput label="Phone" {...f("phone")} />
           <TextInput label="TRN" {...f("trn")} />
         </SimpleGrid>
-        <Divider label="Default terms · copied onto every new quote for this customer" labelPosition="left" mt="xs" />
+        <Divider label="Default Terms" labelPosition="left" mt="xs" />
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-          <TextInput label="Payment terms" {...f("payment_terms")} />
-          <TextInput label="Quote validity" {...f("validity")} />
-          <TextInput label="Delivery terms" {...f("delivery_terms")} />
-          <TextInput label="VAT terms" {...f("vat_terms")} />
+          <TextInput label="Payment Terms" {...f("payment_terms")} />
+          <TextInput label="Validity" {...f("validity")} />
+          <TextInput label="Delivery Terms" {...f("delivery_terms")} />
+          <TextInput label="VAT Terms" {...f("vat_terms")} />
         </SimpleGrid>
-        <Textarea label="Internal notes" autosize minRows={2} {...f("notes")} />
+        <Textarea label="Internal Notes" autosize minRows={2} {...f("notes")} />
         <Group justify="space-between" mt="sm">
           {props.customer ? (
-            <Checkbox label="Active (shown in the customer list)" checked={d.active !== 0} onChange={(e) => setD({ ...d, active: e.currentTarget.checked ? 1 : 0 })} />
+            <Checkbox label="Active" checked={d.active !== 0} onChange={(e) => setD({ ...d, active: e.currentTarget.checked ? 1 : 0 })} />
           ) : <span />}
           <Group gap="sm">
             <Button variant="default" onClick={props.onClose}>Cancel</Button>
-            <Button onClick={save} loading={busy}>Save customer</Button>
+            <Button onClick={save} loading={busy}>Save</Button>
           </Group>
         </Group>
       </Stack>

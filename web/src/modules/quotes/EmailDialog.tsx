@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Anchor, Button, Code, Group, Modal, Stack, Text, TextInput, Textarea } from "@mantine/core";
+import { Anchor, Button, Code, Group, Modal, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { IconCopy, IconMail, IconPaperclip } from "@tabler/icons-react";
 import { api } from "../../lib/api";
 import type { Quote } from "../../lib/types";
@@ -49,18 +49,19 @@ export function EmailDialog(props: { quote: Quote; onClose: () => void; onLogged
   }
 
   return (
-    <Modal opened onClose={props.onClose} size="lg" title={<Text fw={700} ff="heading" fz="lg">Email {no}</Text>}>
+    <Modal opened onClose={props.onClose} size="lg" title={<Text fw={700} ff="heading" fz="lg">Email Quotation · {no}</Text>}>
       <Stack gap="sm">
-        <Alert color="stamp" variant="light" icon={<IconPaperclip size={18} />} title="Attach the PDF">
-          <Anchor component="button" type="button" onClick={props.onPrint} fz="sm">Print the quote</Anchor> and choose “Save as PDF” — the file is named{" "}
-          <Code>{pdfFileName(q)}.pdf</Code>. Attach it to the email that opens. Picking an Outlook thread and attaching automatically arrive with Microsoft sign-in.
-        </Alert>
-        <TextInput label="To" value={to} onChange={(e) => setTo(e.currentTarget.value)} placeholder="customer@example.com" data-autofocus />
+        <Group gap="xs" fz="sm">
+          <IconPaperclip size={16} />
+          <Text fz="sm">Attachment: <Code>{pdfFileName(q)}.pdf</Code></Text>
+          <Anchor component="button" type="button" onClick={props.onPrint} fz="sm">Save as PDF</Anchor>
+        </Group>
+        <TextInput label="To" value={to} onChange={(e) => setTo(e.currentTarget.value)} data-autofocus />
         <TextInput label="Cc" value={cc} onChange={(e) => setCc(e.currentTarget.value)} />
         <TextInput label="Subject" value={subject} onChange={(e) => setSubject(e.currentTarget.value)} />
         <Textarea label="Message" autosize minRows={8} value={bodyText} onChange={(e) => setBody(e.currentTarget.value)} />
         <Group justify="space-between" mt="xs">
-          <Button variant="subtle" leftSection={<IconCopy size={16} />} onClick={() => navigator.clipboard.writeText(bodyText).then(() => toast("Message copied"))}>Copy message</Button>
+          <Button variant="subtle" leftSection={<IconCopy size={16} />} onClick={() => navigator.clipboard.writeText(bodyText).then(() => toast("Message copied"))}>Copy Message</Button>
           <Group gap="sm">
             <Button variant="default" onClick={props.onClose}>Cancel</Button>
             <Button color="stamp" leftSection={<IconMail size={16} />} onClick={open} disabled={!to.trim()}>Open in Outlook</Button>
