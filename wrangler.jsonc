@@ -27,8 +27,8 @@
     "staging": {
       "name": "mogul-workspace-staging",
       "vars": { "APP_ENV": "staging" },
-      // Custom domain is added once mogulelectromech.com DNS is on Cloudflare (see docs/DEPLOY.md):
-      // "routes": [{ "pattern": "quotes-staging.mogulelectromech.com", "custom_domain": true }],
+      // Custom domain: Cloudflare creates the DNS record and certificate on deploy (mogulelectromech.com DNS is on Cloudflare).
+      "routes": [{ "pattern": "quotes-staging.mogulelectromech.com", "custom_domain": true }],
       "d1_databases": [
         { "binding": "DB", "database_name": "mogul-workspace-staging", "database_id": "REPLACE_STAGING_D1_ID", "migrations_dir": "migrations" }
       ],
@@ -37,7 +37,7 @@
     "production": {
       "name": "mogul-workspace",
       "vars": { "APP_ENV": "production" },
-      // "routes": [{ "pattern": "quotes.mogulelectromech.com", "custom_domain": true }],
+      "routes": [{ "pattern": "quotes.mogulelectromech.com", "custom_domain": true }],
       "d1_databases": [
         { "binding": "DB", "database_name": "mogul-workspace-production", "database_id": "REPLACE_PRODUCTION_D1_ID", "migrations_dir": "migrations" }
       ],

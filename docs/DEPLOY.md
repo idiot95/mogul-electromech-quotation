@@ -24,9 +24,14 @@ The app is then at `https://mogul-workspace-staging.<your-subdomain>.workers.dev
 
 ## Custom domains
 
-Once mogulelectromech.com's DNS is on Cloudflare (see DNS-MIGRATION.md), uncomment the `routes` lines in
-`wrangler.jsonc` → `quotes-staging.mogulelectromech.com` and `quotes.mogulelectromech.com`. Cloudflare creates the
-DNS record and certificate on the next deploy.
+| Environment | Address |
+|---|---|
+| Staging | https://quotes-staging.mogulelectromech.com |
+| Live | https://quotes.mogulelectromech.com |
+
+Set by the `routes` lines in `wrangler.jsonc`. mogulelectromech.com's DNS is on Cloudflare (registrar: GoDaddy,
+nameservers `aaden` / `luciane.ns.cloudflare.com`), so Cloudflare creates the DNS record and certificate on deploy.
+The deploy token needs *Zone · DNS · Edit* and *Zone · Workers Routes · Edit* for mogulelectromech.com.
 
 ## Manual deploy from a computer
 
