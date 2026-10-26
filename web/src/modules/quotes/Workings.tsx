@@ -25,7 +25,7 @@ async function shrink(file: File): Promise<File> {
   }
 }
 
-export function Workings(props: { quoteId: number | null; readOnly?: boolean }) {
+export function Workings(props: { quoteId: number | null; readOnly?: boolean; version?: number }) {
   const { toast } = useApp();
   const [files, setFiles] = useState<FileRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export function Workings(props: { quoteId: number | null; readOnly?: boolean }) 
   const load = () => props.quoteId && api.get<FileRow[]>(`/files?owner_type=quote&owner_id=${props.quoteId}`).then(setFiles);
   useEffect(() => {
     load();
-  }, [props.quoteId]);
+  }, [props.quoteId, props.version]);
 
   async function upload(list: File[]) {
     if (!props.quoteId || !list.length) return;
@@ -97,12 +97,9 @@ export function Workings(props: { quoteId: number | null; readOnly?: boolean }) 
         }
       }}
     >
-      <Group justify="space-between" mb="xs">
-        <Title order={5}>Workings</Title>
-        <Text fz="xs" c="dimmed">internal · never printed</Text>
-      </Group>
+      <Title order={5} mb="md">Workings</Title>
       {!props.quoteId ? (
-        <Text fz="sm" c="dimmed">Save the quote first, then attach photos or screenshots of your working.</Text>
+        <Text fz="sm" c="dimmed">Available after saving.</Text>
       ) : (
         <Stack gap="sm">
           {files.length > 0 && (
@@ -131,10 +128,10 @@ export function Workings(props: { quoteId: number | null; readOnly?: boolean }) 
               <Dropzone onDrop={upload} loading={busy} maxSize={8 * 1024 * 1024} accept={["image/*", "application/pdf", ".xlsx", ".xls", ".csv"]} p="sm" radius="md">
                 <Group justify="center" gap="xs" mih={50} style={{ pointerEvents: "none" }}>
                   <IconCamera size={22} color="var(--mantine-color-stamp-6)" />
-                  <Text fz="sm" c="dimmed">Drop or tap to add a photo / file</Text>
+                  <Text fz="sm" c="dimmed">Add File</Text>
                 </Group>
               </Dropzone>
-              <Button size="xs" variant="light" color="stamp" leftSection={<IconClipboard size={14} />} onClick={pasteFromClipboard}>Paste screenshot</Button>
+              <Button size="xs" variant="light" color="stamp" leftSection={<IconClipboard size={14} />} onClick={pasteFromClipboard}>Paste Screenshot</Button>
             </>
           )}
         </Stack>

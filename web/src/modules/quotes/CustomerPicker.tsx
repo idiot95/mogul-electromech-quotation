@@ -46,7 +46,7 @@ export function CustomerPicker(props: {
           rightSectionPointerEvents="none"
           value={props.value}
           readOnly={props.readOnly}
-          placeholder="Type to search customers…"
+          placeholder="Search"
           onChange={(e) => {
             props.onType(e.currentTarget.value);
             combobox.openDropdown();
@@ -73,7 +73,7 @@ export function CustomerPicker(props: {
             <Combobox.Option value="$new">
               <Group gap={6} c="stamp.6">
                 <IconPlus size={14} />
-                <Text fz="sm" fw={600}>New customer{props.value.trim() && !props.selectedId ? ` “${props.value.trim()}”` : ""}</Text>
+                <Text fz="sm" fw={600}>New Customer{props.value.trim() && !props.selectedId ? ` “${props.value.trim()}”` : ""}</Text>
               </Group>
             </Combobox.Option>
           </Combobox.Options>

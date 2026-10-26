@@ -8,14 +8,11 @@ import { useApp } from "./app-context";
 
 const ICONS: Record<string, typeof IconHome> = { "/quotes": IconFileText };
 
-function Brand() {
+function Brand({ height = 58 }: { height?: number }) {
   return (
-    <Group gap={10} wrap="nowrap">
-      <Box component="span" fw={800} fz={16} px={7} py={1} bg="white" c="maroon.7" style={{ fontFamily: "var(--mantine-font-family-headings)", borderRadius: 2 }}>
-        ME
-      </Box>
-      <Text fw={700} c="white" ff="heading">Mogul Workspace</Text>
-    </Group>
+    <Box component={RouterLink} to="/" display="block" lh={0} aria-label="Mogul Electromech · Home">
+      <img src="/logo.jpg" alt="Mogul Electromech LLC" style={{ height, width: "auto", display: "block" }} />
+    </Box>
   );
 }
 
@@ -37,10 +34,12 @@ export function Shell() {
         label={label}
         leftSection={<Icon size={18} stroke={1.7} />}
         active={active}
-        variant="filled"
+        variant="light"
         color="maroon"
-        c={active ? undefined : "gray.3"}
-        style={{ borderRadius: 6 }}
+        c={active ? "maroon.8" : "dark.6"}
+        fw={active ? 700 : 500}
+        className="side-link"
+        data-active={active || undefined}
       />
     );
   };
@@ -48,41 +47,41 @@ export function Shell() {
   return (
     <AppShell
       header={{ height: 52, collapsed: desktop }}
-      navbar={{ width: 230, breakpoint: "md", collapsed: { mobile: !opened } }}
+      navbar={{ width: 248, breakpoint: "md", collapsed: { mobile: !opened } }}
       padding="lg"
     >
-      <AppShell.Header className="no-print" bg="charcoal.8" withBorder={false}>
-        <Group h="100%" px="md">
-          <Burger opened={opened} onClick={toggle} size="sm" color="white" aria-label="Menu" />
-          <Brand />
+      <AppShell.Header className="no-print" bg="white">
+        <Group h="100%" px="md" gap="sm">
+          <Burger opened={opened} onClick={toggle} size="sm" aria-label="Menu" />
+          <Brand height={34} />
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar className="no-print" bg="charcoal.8" p="sm" withBorder={false}>
-        <Box py="xs" px={6} visibleFrom="md"><Brand /></Box>
+      <AppShell.Navbar className="no-print side" bg="white" p="md">
+        <Box pb="sm" pt={4} visibleFrom="md"><Brand /></Box>
         {modules.map((m) =>
           m.newAction ? (
-            <Button key={m.id} component={RouterLink} to={m.newAction.path} leftSection={<IconPlus size={16} />} my="sm" fullWidth>
+            <Button key={m.id} component={RouterLink} to={m.newAction.path} leftSection={<IconPlus size={18} />} size="md" my="sm" fullWidth>
               {m.newAction.label}
             </Button>
           ) : null,
         )}
         <AppShell.Section grow component={ScrollArea}>
-          {link("/", "Home", IconHome, true)}
+          {link("/", "Dashboard", IconHome, true)}
           {modules.flatMap((m) => m.nav.map((n) => link(n.path, n.label, ICONS[n.path] || IconFileText)))}
-          <Text fz={10} ff="monospace" tt="uppercase" c="gray.5" lts={1.2} px="sm" pt="md" pb={4}>Core</Text>
+          <Text fz={11} fw={600} tt="uppercase" c="dimmed" lts={1} px="sm" pt="lg" pb={6}>Administration</Text>
           {link("/customers", "Customers", IconUsers)}
           {link("/settings", "Settings", IconSettings)}
         </AppShell.Section>
-        <Group px={6} pt="sm">
-          {env && <Badge variant="outline" color={env === "production" ? "teal" : "yellow"} size="sm">{env === "production" ? "Live" : env}</Badge>}
+        <Group px={6} pt="sm" gap={6} style={{ borderTop: "1px solid var(--mantine-color-gray-2)" }}>
+          {env && <Badge variant="dot" color={env === "production" ? "teal" : "yellow.7"} size="sm">{env === "production" ? "Production" : env === "staging" ? "Staging" : "Local"}</Badge>}
         </Group>
       </AppShell.Navbar>
 
       <AppShell.Main bg="gray.0">
         {staging && (
           <Text ta="center" fz={12} fw={600} ff="monospace" bg="yellow.4" c="dark.8" py={4} mx="calc(var(--mantine-spacing-lg) * -1)" mt="calc(var(--mantine-spacing-lg) * -1)" mb="md" className="no-print">
-            {env.toUpperCase()} · test data only · not the live system
+            {env === "staging" ? "Staging Environment" : "Local Environment"}
           </Text>
         )}
         <Box maw={1440} mx="auto">
