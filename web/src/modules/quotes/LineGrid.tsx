@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ActionIcon, Button, Group, Menu } from "@mantine/core";
-import { IconArrowBackUp, IconArrowDown, IconArrowUp, IconChevronDown, IconCopy, IconDotsVertical, IconGripVertical, IconHeading, IconPlus, IconRowInsertBottom, IconRowInsertTop, IconTrash } from "@tabler/icons-react";
+import { ActionIcon, Badge, Button, FileButton, Group, Menu, UnstyledButton } from "@mantine/core";
+import { IconArrowBackUp, IconArrowDown, IconArrowUp, IconChevronDown, IconCopy, IconDotsVertical, IconFileUpload, IconGripVertical, IconHeading, IconPlus, IconRowInsertBottom, IconRowInsertTop, IconScissors, IconTrash } from "@tabler/icons-react";
 import { money } from "../../lib/format";
-import { blankLine, headingLine, lineAmount, newKey, parseNum, type EditLine } from "./lines";
+import { blankLine, headingLine, lineAmount, newKey, type EditLine } from "./lines";
 import { rowsFromTSV, toNum, type PasteInput } from "../../../../shared/paste-engine";
+import { IMPORT_ACCEPT } from "../../lib/extract";
 
 type Col = "description" | "qty" | "unit" | "rate";
 const COLS: Col[] = ["description", "qty", "unit", "rate"];
@@ -63,7 +64,11 @@ export function LineGrid(props: {
   linesRef.current = lines;
   const wrapRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
+  /** Row being dragged and the gap it would drop into (0 = before the first row, lines.length = after the last). */
   const [drag, setDrag] = useState<{ from: number; over: number | null } | null>(null);
+  /** Cells on the clipboard (marching-ants border until Esc, a cut is pasted, or the lines change shape). */
+  const [copied, setCopied] = useState<{ r0: number; r1: number; c0: number; c1: number; cut: boolean } | null>(null);
+  const [flash, setFlash] = useState<CellRange | null>(null);
   const [dropping, setDropping] = useState(false);
 
   const [active, setActive] = useState<Pos>({ row: 0, col: 0 });
@@ -151,9 +156,10 @@ export function LineGrid(props: {
     linesRef.current = next;
     props.onChange(next, false);
   };
-  const structural = (next: EditLine[]) => {
+  const structural = (next: EditLine[], keepCopied = false) => {
     linesRef.current = next;
     props.onChange(next, true);
+    if (!keepCopied) setCopied(null);
   };
 
   const insertAt = (i: number, l: EditLine = blankLine(props.defaultUnit)) => {
@@ -322,6 +328,7 @@ export function LineGrid(props: {
       else startEdit(active.row, active.col, "typed", "");
     } else if (k === "Escape") {
       setAnchor(active);
+      setCopied(null);
     } else if (mod && k.toLowerCase() === "a") {
       e.preventDefault();
       setAnchor({ row: 0, col: 0 });
@@ -361,7 +368,8 @@ export function LineGrid(props: {
     const text = rangeTSV();
     lastCopied = normClip(text);
     e.clipboardData.setData("text/plain", text);
-    if (cut) clearRange();
+    // like Excel, a cut only moves the cells when they are pasted
+    setCopied({ r0: range.r0, r1: range.r1, c0: range.c0, c1: range.c1, cut });
   }
 
   function onPaste(e: ClipboardEvent<HTMLDivElement>) {
@@ -398,6 +406,9 @@ export function LineGrid(props: {
 
     const grid = isMulti ? rowsFromTSV(clip) : [[clip]];
     const next = linesRef.current.slice();
+    const cutFrom = own && copied?.cut ? copied : null;
+    if (cutFrom) for (let r = cutFrom.r0; r <= cutFrom.r1; r++) for (let c = cutFrom.c0; c <= Math.min(cutFrom.c1, AMOUNT - 1); c++) put(next, r, c, "");
+    let pasted = { r0: range.r0, r1: range.r1, c0: range.c0, c1: Math.min(range.c1, AMOUNT - 1) };
     if (!isMulti && multi && !editing) {
       // one value into a selected range fills every cell
       for (let r = range.r0; r <= range.r1; r++) for (let c = range.c0; c <= Math.min(range.c1, AMOUNT - 1); c++) put(next, r, c, clip);
@@ -414,9 +425,12 @@ export function LineGrid(props: {
       const w = Math.max(...grid.map((g) => g.length));
       setAnchor({ row: r0, col: c0 });
       setActive({ row: Math.max(r0, r - 1), col: Math.min(NCOLS - 1, c0 + w - 1) });
+      pasted = { r0, r1: Math.max(r0, r - 1), c0, c1: Math.min(AMOUNT - 1, c0 + w - 1) };
     }
     setEditing(null);
-    structural(next);
+    structural(next, own && !cutFrom); // after a copy the source stays marked, as in Excel
+    if (cutFrom) setCopied(null);
+    setFlash(pasted);
     focusGrid();
   }
 
@@ -501,9 +515,19 @@ export function LineGrid(props: {
           setDropping(true);
         }
       }}
-      onDragLeave={() => setDropping(false)}
+      onDragLeave={(e) => {
+        if (!wrapRef.current?.contains(e.relatedTarget as Node)) setDropping(false);
+      }}
       onDrop={onDrop}
     >
+      {dropping && (
+        <div className="lg-drop no-print">
+          <IconFileUpload size={28} />
+          <span>Drop to import</span>
+        </div>
+      )}
+      <Marquee wrap={wrapRef} cellEl={cellEl} range={copied} className="lg-ants" deps={[lines, copied]} />
+      <Marquee wrap={wrapRef} cellEl={cellEl} range={flash} className="lg-flash" deps={[flash]} key={flash ? JSON.stringify(flash) : "none"} onDone={() => setFlash(null)} />
       <table className="lg" ref={tableRef}>
         <thead>
           <tr>
@@ -511,7 +535,7 @@ export function LineGrid(props: {
             <th>Description</th>
             <th className="r">Qty</th>
             <th>Unit</th>
-            <th className="r">Rate ({props.currency})</th>
+            <th className="r">Rate ({props.currency}){!readOnly && <span className="req" title="Required">*</span>}</th>
             <th className="r">Amount ({props.currency})</th>
             <th />
           </tr>
@@ -521,7 +545,13 @@ export function LineGrid(props: {
             const heading = l.kind === "heading";
             if (!heading) sr++;
             const amt = lineAmount(l);
-            const cls = [heading ? "heading" : "", drag && drag.over === i && drag.from !== i ? "drop-before" : ""].join(" ");
+            const moves = !!drag && drag.over != null && drag.over !== drag.from && drag.over !== drag.from + 1;
+            const cls = [
+              heading ? "heading" : "",
+              drag?.from === i ? "dragging" : "",
+              moves && drag!.over === i ? "drop-before" : "",
+              moves && drag!.over === lines.length && i === lines.length - 1 ? "drop-after" : "",
+            ].join(" ");
             return (
               <tr
                 key={l.key}
@@ -529,14 +559,17 @@ export function LineGrid(props: {
                 onDragOver={(e) => {
                   if (drag) {
                     e.preventDefault();
-                    if (drag.over !== i) setDrag({ ...drag, over: i });
+                    e.dataTransfer.dropEffect = "move";
+                    const box = e.currentTarget.getBoundingClientRect();
+                    const gap = e.clientY < box.top + box.height / 2 ? i : i + 1;
+                    if (drag.over !== gap) setDrag({ ...drag, over: gap });
                   }
                 }}
                 onDrop={(e) => {
                   if (drag) {
                     e.preventDefault();
                     e.stopPropagation();
-                    move(drag.from, i);
+                    if (drag.over != null) move(drag.from, drag.over);
                     setDrag(null);
                   }
                 }}
@@ -547,6 +580,8 @@ export function LineGrid(props: {
                   onDragStart={(e) => {
                     e.dataTransfer.effectAllowed = "move";
                     e.dataTransfer.setData("text/plain", String(i));
+                    const row = e.currentTarget.parentElement;
+                    if (row) e.dataTransfer.setDragImage(row, 24, row.offsetHeight / 2);
                     setDrag({ from: i, over: null });
                   }}
                   onDragEnd={() => setDrag(null)}
@@ -589,11 +624,14 @@ export function LineGrid(props: {
                         </div>
                       )}
                     </td>
-                    <td {...cellProps(i, 3, "rate" + (!readOnly && l.description.trim() && parseNum(l.rate) == null ? " missing" : ""))}>
+                    <td {...cellProps(i, 3, "rate")}>
                       {isEditing(i, 3) ? (
                         <CellInput className="cell n" inputMode="decimal" value={l.rate} onChange={(v) => update(i, { rate: v })} />
                       ) : (
-                        <div className="cell n">{l.rate}</div>
+                        <div className="cell n">
+                          {l.rate}
+                          {!readOnly && !l.rate.trim() && l.description.trim() && <span className="need" title="Rate required" />}
+                        </div>
                       )}
                     </td>
                   </>
@@ -640,10 +678,59 @@ export function LineGrid(props: {
           <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => insertAt(lines.length)}>Add Line</Button>
           <Button size="xs" variant="default" leftSection={<IconHeading size={14} />} onClick={() => insertAt(lines.length, headingLine())}>Add Section</Button>
           {props.canUndo && <Button size="xs" variant="subtle" leftSection={<IconArrowBackUp size={14} />} onClick={props.onUndo}>Undo</Button>}
+          {copied && (
+            <Badge variant="light" color="stamp" size="lg" radius="sm" tt="none" fw={500} leftSection={copied.cut ? <IconScissors size={13} /> : <IconCopy size={13} />}>
+              {(copied.r1 - copied.r0 + 1) * (copied.c1 - copied.c0 + 1)} cell{(copied.r1 - copied.r0 + 1) * (copied.c1 - copied.c0 + 1) === 1 ? "" : "s"} {copied.cut ? "cut" : "copied"}
+            </Badge>
+          )}
+          <FileButton onChange={(f) => f && props.onFileDrop(f)} accept={IMPORT_ACCEPT}>
+            {(p) => (
+              <UnstyledButton {...p} className="lg-droptarget" ml="auto">
+                <IconFileUpload size={16} />
+                <span>Import File: drop or click</span>
+              </UnstyledButton>
+            )}
+          </FileButton>
         </Group>
       )}
     </div>
   );
+}
+
+type CellRange = { r0: number; r1: number; c0: number; c1: number };
+
+/** An outline drawn over a block of cells: the copied cells (marching ants) or just-pasted cells (a short flash). */
+function Marquee(props: {
+  wrap: RefObject<HTMLDivElement | null>;
+  cellEl: (r: number, c: number) => HTMLElement | null | undefined;
+  range: CellRange | null;
+  className: string;
+  deps: unknown[];
+  onDone?: () => void;
+}) {
+  const [box, setBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const w = props.wrap.current;
+    const r = props.range;
+    const els = r ? [props.cellEl(r.r0, r.c0), props.cellEl(r.r0, r.c1), props.cellEl(r.r1, r.c0), props.cellEl(r.r1, r.c1)] : [];
+    if (!w || !r || els.some((e) => !e)) return setBox(null);
+    const W = w.getBoundingClientRect();
+    const rects = els.map((e) => e!.getBoundingClientRect());
+    const left = Math.min(...rects.map((x) => x.left));
+    const top = Math.min(...rects.map((x) => x.top));
+    setBox({
+      left: left - W.left + w.scrollLeft,
+      top: top - W.top + w.scrollTop,
+      width: Math.max(...rects.map((x) => x.right)) - left,
+      height: Math.max(...rects.map((x) => x.bottom)) - top,
+    });
+  }, props.deps); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!box || !props.onDone) return;
+    const t = setTimeout(props.onDone, 900);
+    return () => clearTimeout(t);
+  }, [box]); // eslint-disable-line react-hooks/exhaustive-deps
+  return box ? <div className={props.className} style={box} /> : null;
 }
 
 /** Focuses itself on mount with the caret at the end. */
@@ -747,4 +834,3 @@ function UnitEditor(props: { value: string; openList: boolean; onChange: (v: str
   );
 }
 
-export { COLS };

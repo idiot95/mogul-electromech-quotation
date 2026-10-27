@@ -5,7 +5,7 @@ import type { Customer, Quote, QuoteHeader } from "../../lib/types";
 import { dateFmt, money, quoteNo, todayUAE } from "../../lib/format";
 import { useApp } from "../../core/app-context";
 import { CustomerForm } from "../../core/CustomerForm";
-import { extractFile, IMPORT_ACCEPT, kindOf } from "../../lib/extract";
+import { extractFile, kindOf } from "../../lib/extract";
 import type { PasteInput } from "../../../../shared/paste-engine";
 import { LineGrid, type GridApi } from "./LineGrid";
 import { PastePreview, type PasteMode } from "./PastePreview";
@@ -13,15 +13,16 @@ import { blankLine, computeTotals, fromLines, fromParsed, isBlank, lineAmount, p
 import { pdfFileName } from "./QuoteDocument";
 import { Page } from "../../core/Page";
 import { downloadSheet } from "../../lib/sheets";
+import { uploadFile } from "../../lib/upload";
 import { CustomerPicker } from "./CustomerPicker";
 import { Workings } from "./Workings";
 import { EmailDialog } from "./EmailDialog";
 import { StatusBadge } from "./status";
 import { Outcome } from "./Outcome";
-import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Loader, Menu, Modal, NumberInput, Paper, Progress, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title, FileButton } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Loader, Menu, Modal, NumberInput, Paper, Progress, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { modals } from "@mantine/modals";
-import { IconAlertTriangle, IconBan, IconDots, IconFileSpreadsheet, IconCopy, IconDeviceFloppy, IconFileImport, IconGitBranch, IconLock, IconMail, IconPrinter, IconRefresh, IconTrash, IconUser } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBan, IconDots, IconFileSpreadsheet, IconCopy, IconDeviceFloppy, IconGitBranch, IconLock, IconMail, IconPrinter, IconRefresh, IconTrash, IconUser } from "@tabler/icons-react";
 
 const LAST_SALESMAN = "mogul.lastSalesman";
 
@@ -50,6 +51,12 @@ function emptyHeader(): QuoteHeader {
   };
 }
 
+// A new quote's first save opens /quotes/:id, which mounts a fresh editor. The saved quote (and any originals still to be
+// attached) is handed over here so that editor doesn't load it again, and the save doesn't wait for uploads.
+let handoff: { quote: Quote; files: File[] } | null = null;
+// Customers change rarely: show the last list at once and refresh it in the background.
+let customersCache: Customer[] = [];
+
 export function QuoteEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -60,7 +67,7 @@ export function QuoteEditor() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [h, setH] = useState<QuoteHeader>(emptyHeader);
   const [lines, setLines] = useState<EditLine[]>([blankLine(defaultUnit)]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>(customersCache);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!id);
@@ -81,7 +88,7 @@ export function QuoteEditor() {
 
   // ---------- load ----------
   useEffect(() => {
-    api.get<Customer[]>("/customers?all=1").then(setCustomers, (e) => toast(e.message, true));
+    api.get<Customer[]>("/customers?all=1").then((cs) => setCustomers((customersCache = cs)), (e) => toast(e.message, true));
   }, []);
 
   useEffect(() => {
@@ -92,6 +99,16 @@ export function QuoteEditor() {
       setHistory([]);
       setDirty(false);
       setLoading(false);
+      return;
+    }
+    if (handoff && handoff.quote.id === Number(id)) {
+      const q = handoff.quote;
+      const files = handoff.files.splice(0);
+      setTimeout(() => (handoff = null)); // after React's dev double-mount, which runs this effect twice
+      applyQuote(q);
+      setLoading(false);
+      if (files.length)
+        Promise.all(files.map((f) => uploadWorking(q.id, f).catch(() => toast(`Couldn't attach ${f.name} to the workings`, true)))).then(() => setWorkingsVer((v) => v + 1));
       return;
     }
     setLoading(true);
@@ -194,13 +211,7 @@ export function QuoteEditor() {
     }
   }
 
-  const uploadWorking = async (quoteId: number, f: File) => {
-    const fd = new FormData();
-    fd.append("file", f);
-    fd.append("owner_type", "quote");
-    fd.append("owner_id", String(quoteId));
-    await api.post("/files", fd);
-  };
+  const uploadWorking = (quoteId: number, f: File) => uploadFile("quote", quoteId, f);
   /** The original enquiry is kept with the quote's workings (now, or on the first save of a new quote). */
   function keepOriginal(f: File) {
     if (f.size > 8 * 1024 * 1024) return;
@@ -229,10 +240,10 @@ export function QuoteEditor() {
       }
       setDirty(false);
       dirtyRef.current = false;
-      for (const f of pendingWorkings.current.splice(0)) await uploadWorking(saved.id, f).catch(() => toast(`Couldn't attach ${f.name} to the workings`, true));
       if (!quote) {
         setQuote(saved);
         toast(`Saved as ${saved.base_number}`);
+        handoff = { quote: saved, files: pendingWorkings.current.splice(0) };
         navigate(`/quotes/${saved.id}`, { replace: true });
       } else {
         setQuote(saved);
@@ -314,7 +325,10 @@ export function QuoteEditor() {
     if (dirty && !(await save())) return;
     try {
       const q = await api.post<Quote>(`/quotes/${quote!.id}${path}`, body);
-      if (q.id !== quote!.id) navigate(`/quotes/${q.id}`);
+      if (q.id !== quote!.id) {
+        handoff = { quote: q, files: [] };
+        navigate(`/quotes/${q.id}`);
+      }
       else applyQuote(q);
       if (msg) toast(msg);
     } catch (e) {
@@ -493,14 +507,7 @@ export function QuoteEditor() {
             </Paper>
 
             <Stack gap="sm">
-              <Group justify="space-between" align="center">
-                <Title order={4}>Line Items</Title>
-                {!readOnly && (
-                  <FileButton onChange={(f) => f && onFile(f)} accept={IMPORT_ACCEPT}>
-                    {(p) => <Button {...p} size="xs" variant="default" leftSection={<IconFileImport size={14} />}>Import File</Button>}
-                  </FileButton>
-                )}
-              </Group>
+              <Title order={4}>Line Items</Title>
               <LineGrid
                 lines={lines}
                 readOnly={readOnly}
