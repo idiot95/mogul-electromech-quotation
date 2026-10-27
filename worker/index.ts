@@ -21,8 +21,8 @@ for (const m of modules) api.route(`/${m.id}`, m.api);
 api.notFound((c) => c.json({ error: "Not found" }, 404));
 api.onError((err, c) => {
   if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 400);
-  console.error(err);
-  return c.json({ error: "Server error: " + (err as Error).message }, 500);
+  console.error(err); // details stay in the Worker logs; the browser gets a generic message
+  return c.json({ error: "Something went wrong on the server. Please try again." }, 500);
 });
 
 export default {
