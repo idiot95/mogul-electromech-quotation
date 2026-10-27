@@ -2,10 +2,15 @@
 
 | Environment | Worker | D1 database | R2 bucket | Deploys when |
 |---|---|---|---|---|
-| Staging | `mogul-workspace-staging` | `mogul-workspace-staging` | `mogul-workspace-staging` | push to `staging` or any `claude/**` branch |
+| Staging | `mogul-workspace-staging` | `mogul-workspace-staging-eu` | `mogul-workspace-staging-eu` | push to `staging` or any `claude/**` branch |
 | Live | `mogul-workspace` | `mogul-workspace-production` | `mogul-workspace-production` | push to `main` (merged pull request) |
 
-Staging and live never share data. Staging shows a yellow "STAGING · test data only" bar.
+Staging and live never share data. Staging shows a yellow "Staging Environment" bar.
+
+**Region:** databases and file buckets are created in Western Europe (Amsterdam, location hint `weur`), the closest
+D1/R2 region to the UAE; the Worker uses Smart Placement to run next to them. A D1 or R2 location can't be changed after
+creation. The first staging database and bucket (`mogul-workspace-staging`, Eastern North America) were copied to the
+`-eu` ones on 27 Oct 2026 and are no longer used.
 
 ## One-time setup (≈5 minutes)
 

@@ -73,38 +73,46 @@ function totals(lines: ReturnType<typeof cleanLines>, vatRate: number) {
   return { subtotal, vat_amount, total: round2(subtotal + vat_amount) };
 }
 
-function lineInserts(db: D1Database, quoteId: number, lines: ReturnType<typeof cleanLines>) {
+/** Line inserts; `guard` is an SQL condition that must hold (e.g. the quote is still editable). */
+function lineInserts(db: D1Database, idSql: string, idArgs: unknown[], lines: ReturnType<typeof cleanLines>, guard = "1", guardArgs: unknown[] = []) {
   return lines.map((l, i) =>
     db
-      .prepare("INSERT INTO q_lines (quote_id, pos, kind, description, qty, unit, rate, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .bind(quoteId, i + 1, l.kind, l.description, l.qty, l.unit, l.rate, l.amount),
+      .prepare(`INSERT INTO q_lines (quote_id, pos, kind, description, qty, unit, rate, amount) SELECT ${idSql}, ?, ?, ?, ?, ?, ?, ? WHERE ${guard}`)
+      .bind(...idArgs, i + 1, l.kind, l.description, l.qty, l.unit, l.rate, l.amount, ...guardArgs),
   );
 }
 
-async function loadQuote(db: D1Database, id: number) {
-  const q = await db
-    .prepare(
+/**
+ * The statements that read a whole quote. `idSql` is "?" (bound to `args`) or an SQL expression, so a write can append
+ * them to its own batch and the save + reload costs one database round trip.
+ */
+function loadStatements(db: D1Database, idSql: string, args: unknown[]) {
+  const q = (sql: string, n: number) => db.prepare(sql.replaceAll("$ID", idSql)).bind(...Array.from({ length: n }, () => args).flat());
+  return [
+    q(
       `SELECT q.*, s.name AS salesman_name, s.email AS salesman_email, s.phone AS salesman_phone,
               s.email_template AS salesman_email_template, c.email AS customer_email
        FROM q_quotes q
        LEFT JOIN salesmen s ON s.id = q.salesman_id
        LEFT JOIN customers c ON c.id = q.customer_id
-       WHERE q.id = ?`,
-    )
-    .bind(id)
-    .first<QuoteRow>();
+       WHERE q.id = $ID`,
+      1,
+    ),
+    q("SELECT * FROM q_lines WHERE quote_id = $ID ORDER BY pos", 1),
+    q("SELECT * FROM q_emails WHERE quote_id = $ID ORDER BY id DESC", 1),
+    q("SELECT id, rev, status, quote_date, total FROM q_quotes WHERE base_number = (SELECT base_number FROM q_quotes WHERE id = $ID) ORDER BY rev", 1),
+    q("SELECT * FROM q_orders WHERE quote_id = $ID ORDER BY COALESCE(po_date, created_at), id", 1),
+    q("SELECT ol.* FROM q_order_lines ol JOIN q_orders o ON o.id = ol.order_id WHERE o.quote_id = $ID ORDER BY ol.order_id, ol.pos", 1),
+    q("SELECT f.id, f.name, f.mime, f.size, f.created_at, f.owner_id FROM files f JOIN q_orders o ON o.id = f.owner_id WHERE f.owner_type = 'q_order' AND o.quote_id = $ID", 1),
+  ];
+}
+const LOAD_COUNT = 7;
+
+/** Builds the quote from the results of loadStatements (the last LOAD_COUNT results of a batch). */
+function assemble(results: D1Result[]) {
+  const [quote, lines, emails, revisions, orders, orderLines, poFiles] = results.slice(-LOAD_COUNT);
+  const q = quote.results[0] as QuoteRow | undefined;
   if (!q) throw notFound("Quote not found");
-  const [lines, emails, revisions, files, orders, orderLines, poFiles] = await db.batch([
-    db.prepare("SELECT * FROM q_lines WHERE quote_id = ? ORDER BY pos").bind(id),
-    db.prepare("SELECT * FROM q_emails WHERE quote_id = ? ORDER BY id DESC").bind(id),
-    db.prepare("SELECT id, rev, status, quote_date, total FROM q_quotes WHERE base_number = ? ORDER BY rev").bind(q.base_number),
-    db.prepare("SELECT COUNT(*) AS n FROM files WHERE owner_type = 'quote' AND owner_id = ?").bind(id),
-    db.prepare("SELECT * FROM q_orders WHERE quote_id = ? ORDER BY COALESCE(po_date, created_at), id").bind(id),
-    db.prepare("SELECT ol.* FROM q_order_lines ol JOIN q_orders o ON o.id = ol.order_id WHERE o.quote_id = ? ORDER BY ol.order_id, ol.pos").bind(id),
-    db
-      .prepare("SELECT f.id, f.name, f.mime, f.size, f.created_at, f.owner_id FROM files f JOIN q_orders o ON o.id = f.owner_id WHERE f.owner_type = 'q_order' AND o.quote_id = ?")
-      .bind(id),
-  ]);
   type OL = { order_id: number };
   type OF = { owner_id: number };
   return {
@@ -112,13 +120,16 @@ async function loadQuote(db: D1Database, id: number) {
     lines: lines.results,
     emails: emails.results,
     revisions: revisions.results,
-    workings_count: (files.results[0] as { n: number }).n,
     orders: (orders.results as { id: number }[]).map((o) => ({
       ...o,
       lines: (orderLines.results as OL[]).filter((l) => l.order_id === o.id),
       files: (poFiles.results as OF[]).filter((f) => f.owner_id === o.id),
     })),
   };
+}
+
+async function loadQuote(db: D1Database, id: number) {
+  return assemble(await db.batch(loadStatements(db, "?", [id])));
 }
 
 type OrderLineIn = { pos?: unknown; qty?: unknown; rate?: unknown };
@@ -303,46 +314,58 @@ export const quotesApi = new Hono<AppContext>()
   .get("/:id", async (c) => c.json(await loadQuote(c.env.DB, intParam(c.req.param("id")))))
 
   // ---- create ----
+  // One round trip: the next number, the quote, its lines and the reload run as one batch (a single transaction).
   .post("/", async (c) => {
     const b = await body<QuoteIn>(c);
-    const cfg = await getSetting(c.env.DB, "quotes", { series: "ME", vatRate: 5, currency: "AED" });
-    const h = header(b, cfg);
+    const h = header(b, { vatRate: 5 });
     const lines = cleanLines(b.lines);
     const t = totals(lines, h.vat_rate);
-    const number = await nextNumber(c.env.DB, cfg.series || "ME", h.quote_date);
-    const row = await c.env.DB.prepare(
-      `INSERT INTO q_quotes (base_number, rev, ${HEADER_FIELDS.join(", ")}, currency, subtotal, vat_amount, total)
-       VALUES (?, 0, ${HEADER_FIELDS.map(() => "?").join(", ")}, ?, ?, ?, ?) RETURNING id`,
-    )
-      .bind(number, ...HEADER_FIELDS.map((f) => h[f]), cfg.currency || "AED", t.subtotal, t.vat_amount, t.total)
-      .first<{ id: number }>();
-    const stmts = lineInserts(c.env.DB, row!.id, lines);
-    if (stmts.length) await c.env.DB.batch(stmts);
-    return c.json(await loadQuote(c.env.DB, row!.id), 201);
+    const yy = Number(h.quote_date.slice(2, 4));
+    const db = c.env.DB;
+    const cfg = (k: string, d: string) => `COALESCE((SELECT json_extract(value, '$.${k}') FROM settings WHERE key = 'quotes'), '${d}')`;
+    const series = cfg("series", "ME");
+    const newId = "(SELECT MAX(id) FROM q_quotes)";
+    const res = await db.batch([
+      db
+        .prepare(`INSERT INTO number_series (series, year, last) VALUES (${series}, ?, 1) ON CONFLICT(series, year) DO UPDATE SET last = last + 1`)
+        .bind(yy),
+      db
+        .prepare(
+          `INSERT INTO q_quotes (base_number, rev, ${HEADER_FIELDS.join(", ")}, currency, subtotal, vat_amount, total)
+           SELECT printf('%s-%02d-%03d', ns.series, ns.year, ns.last), 0, ${HEADER_FIELDS.map(() => "?").join(", ")}, ${cfg("currency", "AED")}, ?, ?, ?
+           FROM number_series ns WHERE ns.series = ${series} AND ns.year = ?`,
+        )
+        .bind(...HEADER_FIELDS.map((f) => h[f]), t.subtotal, t.vat_amount, t.total, yy),
+      ...lineInserts(db, newId, [], lines),
+      ...loadStatements(db, newId, []),
+    ]);
+    return c.json(assemble(res), 201);
   })
 
   // ---- update (header + full line list, saved in one batch) ----
+  // One round trip: every write is guarded by "still editable", and the reload rides in the same batch.
   .put("/:id", async (c) => {
     const id = intParam(c.req.param("id"));
-    const existing = await getForWrite(c.env.DB, id);
-    if (existing.superseded_by) throw bad("This revision has been superseded and is read-only. Open the latest revision.");
     const b = await body<QuoteIn>(c);
-    const cfg = await getSetting(c.env.DB, "quotes", { vatRate: 5 });
-    const h = header(b, cfg);
+    const h = header(b, { vatRate: 5 });
     const lines = cleanLines(b.lines);
     const t = totals(lines, h.vat_rate);
     const db = c.env.DB;
-    await db.batch([
+    const editable = "EXISTS (SELECT 1 FROM q_quotes WHERE id = ? AND superseded_by IS NULL)";
+    const res = await db.batch([
       db
         .prepare(
           `UPDATE q_quotes SET ${HEADER_FIELDS.map((f) => `${f} = ?`).join(", ")},
-             subtotal = ?, vat_amount = ?, total = ?, updated_at = datetime('now') WHERE id = ?`,
+             subtotal = ?, vat_amount = ?, total = ?, updated_at = datetime('now') WHERE id = ? AND superseded_by IS NULL`,
         )
         .bind(...HEADER_FIELDS.map((f) => h[f]), t.subtotal, t.vat_amount, t.total, id),
-      db.prepare("DELETE FROM q_lines WHERE quote_id = ?").bind(id),
-      ...lineInserts(db, id, lines),
+      db.prepare(`DELETE FROM q_lines WHERE quote_id = ? AND ${editable}`).bind(id, id),
+      ...lineInserts(db, "?", [id], lines, editable, [id]),
+      ...loadStatements(db, "?", [id]),
     ]);
-    return c.json(await loadQuote(db, id));
+    const q = assemble(res);
+    if (!res[0].meta.changes && q.superseded_by) throw bad("This revision has been superseded and is read-only. Open the latest revision.");
+    return c.json(q);
   })
 
   // ---- status ----

@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { lazy, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router";
 import { MantineProvider } from "@mantine/core";
@@ -15,9 +15,18 @@ import { AppProvider } from "./core/app-context";
 import { Shell } from "./core/Shell";
 import { modules } from "./modules";
 import { HomePage } from "./pages/Home";
-import { CustomersPage } from "./pages/Customers";
-import { SettingsPage } from "./pages/Settings";
 import { NotFound } from "./pages/NotFound";
+
+const CustomersPage = lazy(() => import("./pages/Customers").then((m) => ({ default: m.CustomersPage })));
+const SettingsPage = lazy(() => import("./pages/Settings").then((m) => ({ default: m.SettingsPage })));
+
+// Once the first page is up, fetch the other pages' code in the background so moving around is instant.
+const idle = (fn: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(fn) : setTimeout(fn, 1500));
+idle(() => {
+  modules.forEach((m) => m.prefetch?.());
+  import("./pages/Customers");
+  import("./pages/Settings");
+});
 
 const router = createBrowserRouter([
   {

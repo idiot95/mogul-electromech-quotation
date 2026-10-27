@@ -102,7 +102,6 @@ export interface Quote extends QuoteHeader {
   lines: Line[];
   emails: { id: number; to_addr: string; cc_addr: string; subject: string; method: string; sent_by: string; created_at: string }[];
   revisions: { id: number; rev: number; status: QuoteStatus; quote_date: string; total: number }[];
-  workings_count: number;
   orders: Order[];
   lost_reason: string | null;
   lost_note: string | null;

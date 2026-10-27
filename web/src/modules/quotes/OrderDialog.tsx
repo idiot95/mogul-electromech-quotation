@@ -5,6 +5,7 @@ import { Dropzone } from "@mantine/dropzone";
 import { useMediaQuery } from "@mantine/hooks";
 import { IconCheck, IconFileUpload, IconPaperclip, IconX } from "@tabler/icons-react";
 import { api } from "../../lib/api";
+import { uploadFile } from "../../lib/upload";
 import type { Order, Quote } from "../../lib/types";
 import { money, qtyFmt, quoteNo, round2, todayUAE } from "../../lib/format";
 import { useApp } from "../../core/app-context";
@@ -93,13 +94,9 @@ export function OrderDialog(props: { quote: Quote; order?: Order; onClose: () =>
         : await api.post<{ order_id: number; quote: Quote }>(`/quotes/${quote.id}/orders`, payload);
       let q = res.quote;
       if (file) {
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("owner_type", "q_order");
-        fd.append("owner_id", String(res.order_id));
         try {
-          await api.post("/files", fd);
-          q = await api.get<Quote>(`/quotes/${quote.id}`);
+          const f = await uploadFile("q_order", res.order_id, file);
+          q = { ...q, orders: q.orders.map((o) => (o.id === res.order_id ? { ...o, files: [...o.files, f] } : o)) };
         } catch (e) {
           toast(`Order saved, but the PO file didn't upload: ${(e as Error).message}`, true);
         }

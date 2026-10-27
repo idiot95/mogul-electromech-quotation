@@ -1,5 +1,6 @@
 // Mogul Workspace · Cloudflare Worker config
-// Two deployed environments: staging and production (live). Each has its own D1 database and R2 bucket.
+// Two deployed environments: staging and production (live). Each has its own D1 database and R2 bucket,
+// both in Western Europe (Amsterdam), the closest region to the UAE.
 // IDs marked REPLACE_ are filled in by scripts/cf-provision.mjs (run by the deploy workflow) — it creates the D1 database
 // and R2 bucket on first deploy and writes the database id here.
 {
@@ -15,6 +16,8 @@
     "run_worker_first": ["/api/*"]
   },
   "observability": { "enabled": true },
+  // Run the Worker next to its database (D1 is in Western Europe) instead of next to the visitor.
+  "placement": { "mode": "smart" },
 
   // ---- local dev (wrangler dev) ----
   "vars": { "APP_ENV": "local" },
@@ -30,9 +33,9 @@
       // Custom domain: Cloudflare creates the DNS record and certificate on deploy (mogulelectromech.com DNS is on Cloudflare).
       "routes": [{ "pattern": "quotes-staging.mogulelectromech.com", "custom_domain": true }],
       "d1_databases": [
-        { "binding": "DB", "database_name": "mogul-workspace-staging", "database_id": "bfdf3f18-0908-4da9-aef1-0b4d67a6b4ba", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "mogul-workspace-staging-eu", "database_id": "0aa518c6-7ca3-45dd-bcc9-b72ec7185774", "migrations_dir": "migrations" }
       ],
-      "r2_buckets": [{ "binding": "FILES", "bucket_name": "mogul-workspace-staging" }]
+      "r2_buckets": [{ "binding": "FILES", "bucket_name": "mogul-workspace-staging-eu" }]
     },
     "production": {
       "name": "mogul-workspace",

@@ -14,7 +14,3 @@ export async function nextNumber(db: D1Database, series: string, date: string): 
   const n = row!.last;
   return `${series}-${String(yy).padStart(2, "0")}-${String(n).padStart(3, "0")}`;
 }
-
-export function displayNumber(base: string, rev: number): string {
-  return rev > 0 ? `${base} REV ${String(rev).padStart(2, "0")}` : base;
-}
