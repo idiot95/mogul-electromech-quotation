@@ -34,6 +34,7 @@ export interface AppUser {
   role: "admin" | "user";
   active: number;
   must_change_password: number;
+  has_password: number; // 0 until an admin sets one (users made from the old Sales Reps list)
   locked_until: string | null;
   created_at: string;
 }

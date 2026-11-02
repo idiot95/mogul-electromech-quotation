@@ -52,7 +52,7 @@ const DUMMY_HASH = `pbkdf2-sha256$${ITERATIONS}$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAA
 
 export function checkNewPassword(password: unknown, username: string): string {
   const p = typeof password === "string" ? password : "";
-  if (p.length < 8) throw bad("The password must be at least 8 characters.");
+  if (p.length < 6) throw bad("The password must be at least 6 characters.");
   if (p.length > 200) throw bad("The password is too long.");
   if (p.toLowerCase() === username.toLowerCase()) throw bad("The password can't be the same as the username.");
   return p;
@@ -251,7 +251,20 @@ export const repsApi = new Hono<AppContext>().get("/", async (c) => {
 
 // ---------- users (admin) ----------
 
-const USER_COLS = "id, username, display_name, email, phone, email_template, role, active, must_change_password, locked_until, created_at";
+// has_password = 0 for the users made from the old Sales Reps list until an admin sets their password
+const USER_COLS =
+  "id, username, display_name, email, phone, email_template, role, active, must_change_password, (password_hash != '!') AS has_password, locked_until, created_at";
+const mustChange = (b: Record<string, unknown>) => (b.must_change === true || b.must_change === 1 ? 1 : 0);
+
+/** Statements that give a user a password chosen by the admin (and sign them out elsewhere, except this admin's session). */
+async function setPassword(db: D1Database, id: number, password: string, b: Record<string, unknown>, keepSession: string) {
+  return [
+    db
+      .prepare("UPDATE users SET password_hash = ?, must_change_password = ?, failed_logins = 0, locked_until = NULL, updated_at = datetime('now') WHERE id = ?")
+      .bind(await hashPassword(password), mustChange(b), id),
+    db.prepare("DELETE FROM sessions WHERE user_id = ? AND id != ?").bind(id, keepSession),
+  ];
+}
 const contact = (b: Record<string, unknown>) => [str(b.email, 200), str(b.phone, 100), str(b.email_template, 5000)];
 
 function cleanUsername(v: unknown) {
@@ -284,9 +297,9 @@ export const usersApi = new Hono<AppContext>()
     if (exists) throw bad("That username is taken.");
     const row = await c.env.DB.prepare(
       `INSERT INTO users (username, display_name, email, phone, email_template, password_hash, role, must_change_password)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING ${USER_COLS}`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${USER_COLS}`,
     )
-      .bind(username, name, ...contact(b), await hashPassword(password), role(b.role))
+      .bind(username, name, ...contact(b), await hashPassword(password), role(b.role), mustChange(b))
       .first();
     return c.json(row, 201);
   })
@@ -298,7 +311,16 @@ export const usersApi = new Hono<AppContext>()
     const active = !(b.active === false || b.active === 0);
     await keepAnAdmin(c.env.DB, id, role(b.role), active);
     const db = c.env.DB;
-    const [row] = await db.batch([
+    // optional: a new password typed by the admin in the same form
+    const pw = typeof b.password === "string" && b.password !== "" ? b.password : null;
+    let pwStatements: D1PreparedStatement[] = [];
+    if (pw) {
+      const u = await db.prepare("SELECT username FROM users WHERE id = ?").bind(id).first<{ username: string }>();
+      if (!u) throw notFound("User not found");
+      pwStatements = await setPassword(db, id, checkNewPassword(pw, u.username), b, c.get("user").sessionId);
+    }
+    const res = await db.batch([
+      ...pwStatements,
       db
         .prepare(
           `UPDATE users SET display_name = ?, email = ?, phone = ?, email_template = ?, role = ?, active = ?, updated_at = datetime('now')
@@ -308,8 +330,9 @@ export const usersApi = new Hono<AppContext>()
       // a deactivated user is signed out everywhere
       db.prepare("DELETE FROM sessions WHERE user_id = ? AND ? = 0").bind(id, active ? 1 : 0),
     ]);
-    if (!row.results[0]) throw notFound("User not found");
-    return c.json(row.results[0]);
+    const row = res[pwStatements.length].results[0];
+    if (!row) throw notFound("User not found");
+    return c.json(row);
   })
   .post("/:id/password", async (c) => {
     const id = intParam(c.req.param("id"));
@@ -317,12 +340,6 @@ export const usersApi = new Hono<AppContext>()
     const db = c.env.DB;
     const u = await db.prepare("SELECT username FROM users WHERE id = ?").bind(id).first<{ username: string }>();
     if (!u) throw notFound("User not found");
-    const password = checkNewPassword(b.password, u.username);
-    await db.batch([
-      db
-        .prepare("UPDATE users SET password_hash = ?, must_change_password = 1, failed_logins = 0, locked_until = NULL, updated_at = datetime('now') WHERE id = ?")
-        .bind(await hashPassword(password), id),
-      db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id),
-    ]);
+    await db.batch(await setPassword(db, id, checkNewPassword(b.password, u.username), b, c.get("user").sessionId));
     return c.json({ ok: true });
   });

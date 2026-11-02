@@ -8,11 +8,31 @@ import { useApp } from "../core/app-context";
 import { Page } from "../core/Page";
 import { DEFAULT_EMAIL_TEMPLATE, TEMPLATE_FIELDS } from "../lib/email-template";
 
-/** A readable temporary password, e.g. "Maple-Quartz-4821". The user replaces it at first sign-in. */
-function tempPassword() {
+/** A readable password suggestion, e.g. "Maple-Quartz-4821". */
+function suggestPassword() {
   const w = ["Amber", "Basil", "Cedar", "Delta", "Ember", "Flint", "Grove", "Harbor", "Indigo", "Jasper", "Lumen", "Maple", "Nectar", "Onyx", "Quartz", "River", "Saffron", "Tundra"];
   const r = crypto.getRandomValues(new Uint32Array(3));
   return `${w[r[0] % w.length]}-${w[r[1] % w.length]}-${(r[2] % 9000) + 1000}`;
+}
+
+/** Password typed (or generated) by the admin; shown in plain text so it can be passed on. */
+function PasswordField(props: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; description?: string; required?: boolean }) {
+  return (
+    <TextInput
+      label={props.label}
+      description={props.description}
+      placeholder={props.placeholder}
+      required={props.required}
+      autoComplete="off"
+      value={props.value}
+      onChange={(e) => props.onChange(e.currentTarget.value)}
+      rightSection={
+        <Tooltip label="Suggest a password">
+          <ActionIcon variant="subtle" color="gray" onClick={() => props.onChange(suggestPassword())} aria-label="Suggest a password"><IconRefresh size={16} /></ActionIcon>
+        </Tooltip>
+      }
+    />
+  );
 }
 
 export function UsersPage() {
@@ -20,23 +40,13 @@ export function UsersPage() {
   const [rows, setRows] = useState<AppUser[] | null>(null);
   const [edit, setEdit] = useState<AppUser | "new" | null>(null);
   const [shown, setShown] = useState<{ username: string; password: string } | null>(null);
+  const [pwFor, setPwFor] = useState<AppUser | null>(null);
 
   // users are the Sales Reps, so the Sales Rep lists elsewhere are refreshed too
   const load = () => Promise.all([api.get<AppUser[]>("/users").then(setRows), reload()]).catch((e) => toast(e.message, true));
   useEffect(() => {
     load();
   }, []);
-
-  async function reset(u: AppUser) {
-    const password = tempPassword();
-    try {
-      await api.post(`/users/${u.id}/password`, { password });
-      setShown({ username: u.username, password });
-      load();
-    } catch (e) {
-      toast((e as Error).message, true);
-    }
-  }
 
   return (
     <Page crumbs={[{ label: "Dashboard", to: "/" }]} title="Users" actions={<Button leftSection={<IconPlus size={16} />} onClick={() => setEdit("new")}>New User</Button>}>
@@ -64,9 +74,10 @@ export function UsersPage() {
                   <Table.Td fz="sm">{u.phone}</Table.Td>
                   <Table.Td><Badge variant="light" color={u.role === "admin" ? "maroon" : "gray"}>{u.role === "admin" ? "Admin" : "User"}</Badge></Table.Td>
                   <Table.Td>
-                    {!u.active ? <Badge variant="light" color="gray">{u.must_change_password ? "No sign-in" : "Inactive"}</Badge>
+                    {!u.has_password ? <Badge variant="light" color="red">No password</Badge>
+                      : !u.active ? <Badge variant="light" color="gray">Inactive</Badge>
                       : u.locked_until && Date.parse(u.locked_until.replace(" ", "T") + "Z") > Date.now() ? <Badge variant="light" color="orange">Locked</Badge>
-                      : u.must_change_password ? <Badge variant="light" color="yellow">Awaiting first sign-in</Badge>
+                      : u.must_change_password ? <Badge variant="light" color="yellow">Must change password</Badge>
                       : <Badge variant="light" color="teal">Active</Badge>}
                   </Table.Td>
                   <Table.Td fz="sm">{dateFmt(u.created_at)}</Table.Td>
@@ -77,7 +88,7 @@ export function UsersPage() {
                       </Menu.Target>
                       <Menu.Dropdown>
                         <Menu.Item leftSection={<IconPencil size={15} />} onClick={() => setEdit(u)}>Edit</Menu.Item>
-                        <Menu.Item leftSection={<IconKey size={15} />} onClick={() => reset(u)}>Reset Password</Menu.Item>
+                        <Menu.Item leftSection={<IconKey size={15} />} onClick={() => setPwFor(u)}>Set Password</Menu.Item>
                       </Menu.Dropdown>
                     </Menu>
                   </Table.Td>
@@ -92,20 +103,31 @@ export function UsersPage() {
         <UserForm
           u={edit === "new" ? null : edit}
           onClose={() => setEdit(null)}
-          onSaved={(created) => {
+          onSaved={(signIn) => {
             setEdit(null);
-            if (created) setShown(created);
+            if (signIn) setShown(signIn);
             load();
           }}
         />
       )}
-      <Modal opened={!!shown} onClose={() => setShown(null)} title={<Text fw={700} ff="heading" fz="lg">Temporary Password</Text>}>
+      {pwFor && (
+        <SetPassword
+          u={pwFor}
+          onClose={() => setPwFor(null)}
+          onSaved={(signIn) => {
+            setPwFor(null);
+            setShown(signIn);
+            load();
+          }}
+        />
+      )}
+      <Modal opened={!!shown} onClose={() => setShown(null)} title={<Text fw={700} ff="heading" fz="lg">Sign-in Details</Text>}>
         {shown && (
           <Stack gap="md">
-            <Text fz="sm">Give these to <b>{shown.username}</b>. They set their own password at first sign-in. This password is not shown again.</Text>
+            <Text fz="sm">Username <b>{shown.username}</b> can now sign in with this password. It is not shown again.</Text>
             <Group gap="xs" wrap="nowrap">
               <Code fz="lg" p="sm" style={{ flex: 1 }}>{shown.password}</Code>
-              <CopyButton value={`Username: ${shown.username}\nTemporary password: ${shown.password}`}>
+              <CopyButton value={`Username: ${shown.username}\nPassword: ${shown.password}`}>
                 {({ copied, copy }) => (
                   <Tooltip label={copied ? "Copied" : "Copy username and password"}>
                     <ActionIcon size={42} variant="default" onClick={copy} aria-label="Copy">{copied ? <IconCheck size={18} /> : <IconCopy size={18} />}</ActionIcon>
@@ -121,7 +143,41 @@ export function UsersPage() {
   );
 }
 
-function UserForm(props: { u: AppUser | null; onClose: () => void; onSaved: (created?: { username: string; password: string }) => void }) {
+function SetPassword(props: { u: AppUser; onClose: () => void; onSaved: (signIn: { username: string; password: string }) => void }) {
+  const { toast } = useApp();
+  const [password, setPassword] = useState("");
+  const [mustChange, setMustChange] = useState(false);
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    try {
+      // setting a password also lets a switched-off user sign in
+      if (!props.u.active) await api.put(`/users/${props.u.id}`, { ...props.u, active: true });
+      await api.post(`/users/${props.u.id}/password`, { password, must_change: mustChange });
+      toast("Password set");
+      props.onSaved({ username: props.u.username, password });
+    } catch (e) {
+      toast((e as Error).message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal opened onClose={props.onClose} title={<Text fw={700} ff="heading" fz="lg">Set Password · {props.u.display_name}</Text>}>
+      <Stack gap="md">
+        <PasswordField label="New Password" description="At least 6 characters" required value={password} onChange={setPassword} />
+        <Switch label="Ask them to choose their own password at first sign-in" checked={mustChange} onChange={(e) => setMustChange(e.currentTarget.checked)} />
+        {!props.u.active && <Text fz="sm" c="dimmed">This user is switched off; setting a password switches them on.</Text>}
+        <Group justify="flex-end">
+          <Button variant="default" onClick={props.onClose}>Cancel</Button>
+          <Button onClick={save} loading={busy} disabled={password.length < 6}>Set Password</Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+function UserForm(props: { u: AppUser | null; onClose: () => void; onSaved: (signIn?: { username: string; password: string }) => void }) {
   const { toast } = useApp();
   const [name, setName] = useState(props.u?.display_name || "");
   const [username, setUsername] = useState(props.u?.username || "");
@@ -130,22 +186,20 @@ function UserForm(props: { u: AppUser | null; onClose: () => void; onSaved: (cre
   const [phone, setPhone] = useState(props.u?.phone || "");
   const [template, setTemplate] = useState(props.u?.email_template || DEFAULT_EMAIL_TEMPLATE);
   const [active, setActive] = useState(props.u ? !!props.u.active : true);
-  const [password, setPassword] = useState(tempPassword);
+  const [password, setPassword] = useState("");
+  const [mustChange, setMustChange] = useState(false);
+  const needsPassword = !props.u || !props.u.has_password;
   const [busy, setBusy] = useState(false);
 
   async function save() {
     setBusy(true);
     try {
       const data = { display_name: name, email, phone, email_template: template === DEFAULT_EMAIL_TEMPLATE ? null : template, role, active };
-      if (props.u) {
-        await api.put(`/users/${props.u.id}`, data);
-        toast("User saved");
-        props.onSaved();
-      } else {
-        await api.post("/users", { ...data, username, password });
-        toast("User added");
-        props.onSaved({ username: username.trim().toLowerCase(), password });
-      }
+      const pw = password ? { password, must_change: mustChange } : {};
+      if (props.u) await api.put(`/users/${props.u.id}`, { ...data, ...pw });
+      else await api.post("/users", { ...data, ...pw, username });
+      toast(props.u ? "User saved" : "User added");
+      props.onSaved(password ? { username: (props.u?.username || username).trim().toLowerCase(), password } : undefined);
     } catch (e) {
       toast((e as Error).message, true);
     } finally {
@@ -165,18 +219,26 @@ function UserForm(props: { u: AppUser | null; onClose: () => void; onSaved: (cre
             data={[{ value: "user", label: "User: own quotations only" }, { value: "admin", label: "Admin: all quotations and settings" }]} />
         </SimpleGrid>
         <Textarea label="Email Template" description={`Fields: ${TEMPLATE_FIELDS}`} autosize minRows={6} maxRows={12} value={template} onChange={(e) => setTemplate(e.currentTarget.value)} />
-        {!props.u && (
-          <TextInput
-            label="Temporary Password"
+        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+          <PasswordField
+            label={props.u ? "New Password" : "Password"}
+            required={needsPassword}
+            description={needsPassword ? "At least 6 characters" : undefined}
+            placeholder={needsPassword ? undefined : "Leave blank to keep the current one"}
             value={password}
-            onChange={(e) => setPassword(e.currentTarget.value)}
-            rightSection={<Tooltip label="New password"><ActionIcon variant="subtle" color="gray" onClick={() => setPassword(tempPassword())} aria-label="New password"><IconRefresh size={16} /></ActionIcon></Tooltip>}
+            onChange={(v) => {
+              setPassword(v);
+              if (v && props.u && !props.u.has_password) setActive(true); // a first password is for signing in
+            }}
           />
-        )}
-        {props.u && <Switch label="Active" checked={active} onChange={(e) => setActive(e.currentTarget.checked)} />}
+          <Stack gap={6} justify="flex-end" pb={6}>
+            {props.u && <Switch label="Active (can sign in)" checked={active} onChange={(e) => setActive(e.currentTarget.checked)} />}
+            {password && <Switch label="Must change at first sign-in" checked={mustChange} onChange={(e) => setMustChange(e.currentTarget.checked)} />}
+          </Stack>
+        </SimpleGrid>
         <Group justify="flex-end" mt="xs">
           <Button variant="default" onClick={props.onClose}>Cancel</Button>
-          <Button onClick={save} loading={busy} disabled={!name.trim() || (!props.u && !username.trim())}>Save</Button>
+          <Button onClick={save} loading={busy} disabled={!name.trim() || (!props.u && !username.trim()) || (!props.u && password.length < 6)}>Save</Button>
         </Group>
       </Stack>
     </Modal>

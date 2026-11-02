@@ -80,7 +80,7 @@ export function ChangePassword(props: { forced?: boolean; onDone: (u: SessionUse
         {props.forced && <Text fz="sm" c="dimmed">Set your own password to continue.</Text>}
         {error && <Alert color="red" variant="light" icon={<IconAlertCircle size={18} />} p="xs">{error}</Alert>}
         <PasswordInput label={props.forced ? "Temporary Password" : "Current Password"} autoComplete="current-password" required autoFocus value={current} onChange={(e) => setCurrent(e.currentTarget.value)} />
-        <PasswordInput label="New Password" description="At least 8 characters" autoComplete="new-password" required value={next} onChange={(e) => setNext(e.currentTarget.value)} />
+        <PasswordInput label="New Password" description="At least 6 characters" autoComplete="new-password" required value={next} onChange={(e) => setNext(e.currentTarget.value)} />
         <PasswordInput label="Confirm New Password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.currentTarget.value)} />
         <Button type="submit" size="md" loading={busy} mt="xs">Save Password</Button>
         {props.onCancel && <Button variant="subtle" color="gray" onClick={props.onCancel}>Cancel</Button>}
