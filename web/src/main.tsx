@@ -19,6 +19,7 @@ import { NotFound } from "./pages/NotFound";
 
 const CustomersPage = lazy(() => import("./pages/Customers").then((m) => ({ default: m.CustomersPage })));
 const SettingsPage = lazy(() => import("./pages/Settings").then((m) => ({ default: m.SettingsPage })));
+const UsersPage = lazy(() => import("./pages/Users").then((m) => ({ default: m.UsersPage })));
 
 // Once the first page is up, fetch the other pages' code in the background so moving around is instant.
 const idle = (fn: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(fn) : setTimeout(fn, 1500));
@@ -36,6 +37,7 @@ const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: "customers", element: <CustomersPage /> },
       { path: "settings", element: <SettingsPage /> },
+      { path: "users", element: <UsersPage /> },
       ...modules.flatMap((m) => m.routes),
       { path: "*", element: <NotFound /> },
     ],

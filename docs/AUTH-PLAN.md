@@ -1,6 +1,7 @@
 # Sign-in and user access: plan
 
-Status: **plan only.** Sign-in is off today; every API route in `worker/index.ts` is open.
+Status: **superseded.** Username/password sign-in with admin-managed users and per-user quotation access was built instead
+(see README, `worker/core/auth.ts`). Microsoft sign-in and Outlook sending below remain an option for later.
 
 ## Goals
 

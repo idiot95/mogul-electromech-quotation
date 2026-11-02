@@ -91,7 +91,7 @@ export function QuotesHomeWidget() {
           </Group>
           <ScrollArea>
             <Table highlightOnHover miw={600}>
-              <Table.Thead><Table.Tr><Table.Th>Quotation No.</Table.Th><Table.Th>Customer</Table.Th><Table.Th>Salesperson</Table.Th><Table.Th>Age</Table.Th><Table.Th ta="right">Value excl. VAT (AED)</Table.Th></Table.Tr></Table.Thead>
+              <Table.Thead><Table.Tr><Table.Th>Quotation No.</Table.Th><Table.Th>Customer</Table.Th><Table.Th>Sales Rep</Table.Th><Table.Th>Age</Table.Th><Table.Th ta="right">Value excl. VAT (AED)</Table.Th></Table.Tr></Table.Thead>
               <Table.Tbody>
                 {s.followUp.map((q) => (
                   <Table.Tr key={q.id}>
@@ -109,7 +109,7 @@ export function QuotesHomeWidget() {
       )}
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Paper p="lg"><Title order={4} mb="lg">Quoted Value by Customer (AED)</Title>{s && <Bars rows={s.byCustomer} />}</Paper>
-        <Paper p="lg"><Title order={4} mb="lg">Quoted Value by Salesperson (AED)</Title>{s && <Bars rows={s.bySalesman} />}</Paper>
+        <Paper p="lg"><Title order={4} mb="lg">Quoted Value by Sales Rep (AED)</Title>{s && <Bars rows={s.bySalesman} />}</Paper>
         {s && s.lostWhy.length > 0 && <Paper p="lg"><Title order={4} mb="lg">Lost Value by Reason (AED)</Title><Bars rows={s.lostWhy} /></Paper>}
       </SimpleGrid>
       <Paper p="lg">
@@ -119,7 +119,7 @@ export function QuotesHomeWidget() {
         </Group>
         <ScrollArea>
           <Table highlightOnHover miw={600}>
-            <Table.Thead><Table.Tr><Table.Th>Quotation No.</Table.Th><Table.Th>Customer</Table.Th><Table.Th>Salesperson</Table.Th><Table.Th>Status</Table.Th><Table.Th ta="right">Value excl. VAT (AED)</Table.Th></Table.Tr></Table.Thead>
+            <Table.Thead><Table.Tr><Table.Th>Quotation No.</Table.Th><Table.Th>Customer</Table.Th><Table.Th>Sales Rep</Table.Th><Table.Th>Status</Table.Th><Table.Th ta="right">Value excl. VAT (AED)</Table.Th></Table.Tr></Table.Thead>
             <Table.Tbody>
               {s?.largest.map((q) => (
                 <Table.Tr key={q.id}>

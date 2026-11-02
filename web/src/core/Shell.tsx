@@ -1,10 +1,11 @@
 import { Suspense, useEffect, useState } from "react";
 import { NavLink as RouterLink, Outlet, useLocation } from "react-router";
-import { ActionIcon, AppShell, Box, Burger, Button, Center, Group, Loader, ScrollArea, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { ActionIcon, AppShell, Avatar, Box, Burger, Button, Center, Group, Loader, Menu, Modal, ScrollArea, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { IconHome, IconFileText, IconUsers, IconSettings, IconPlus, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
+import { IconHome, IconFileText, IconUsers, IconSettings, IconPlus, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconUserShield, IconKey, IconLogout, IconSelector } from "@tabler/icons-react";
 import { modules } from "../modules";
 import { useApp } from "./app-context";
+import { ChangePassword } from "./SignIn";
 
 const ICONS: Record<string, typeof IconHome> = { "/quotes": IconFileText };
 const COLLAPSED_KEY = "mogul.sidebarCollapsed";
@@ -23,7 +24,9 @@ function Brand({ height, markOnly }: { height: number; markOnly?: boolean }) {
 }
 
 export function Shell() {
-  const { env } = useApp();
+  const { env, user, isAdmin, setUser, signOut, toast } = useApp();
+  const [pwOpen, setPwOpen] = useState(false);
+  const initials = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const [opened, { toggle, close }] = useDisclosure();
   const loc = useLocation();
   useEffect(close, [loc.pathname]);
@@ -98,9 +101,31 @@ export function Shell() {
             {modules.flatMap((m) => m.nav.map((n) => link(n.path, n.label, ICONS[n.path] || IconFileText)))}
             {collapsed ? <Box h={1} bg="gray.3" my="sm" mx="xs" /> : <Text className="side-group">Administration</Text>}
             {link("/customers", "Customers", IconUsers)}
-            {link("/settings", "Settings", IconSettings)}
+            {isAdmin && link("/users", "Users", IconUserShield)}
+            {isAdmin && link("/settings", "Settings", IconSettings)}
           </Stack>
         </AppShell.Section>
+
+        <Menu position={collapsed ? "right-end" : "top-start"} shadow="md" width={220} withinPortal>
+          <Menu.Target>
+            <UnstyledButton className="side-user" data-collapsed={collapsed || undefined} aria-label="Account">
+              <Avatar size={32} radius="xl" color="maroon">{initials}</Avatar>
+              {!collapsed && (
+                <>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <Text fz="sm" fw={600} truncate>{user.name}</Text>
+                    <Text fz="xs" c="dimmed" truncate>{isAdmin ? "Admin" : "User"} · {user.username}</Text>
+                  </div>
+                  <IconSelector size={16} color="var(--mantine-color-gray-6)" />
+                </>
+              )}
+            </UnstyledButton>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item leftSection={<IconKey size={15} />} onClick={() => setPwOpen(true)}>Change Password</Menu.Item>
+            <Menu.Item leftSection={<IconLogout size={15} />} onClick={signOut}>Sign Out</Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
 
         <Group justify={collapsed ? "center" : "space-between"} pt="sm" mt="sm" className="side-foot" wrap="nowrap">
           {env && !collapsed && (
@@ -116,6 +141,10 @@ export function Shell() {
           </Tooltip>
         </Group>
       </AppShell.Navbar>
+
+      <Modal opened={pwOpen} onClose={() => setPwOpen(false)} title={<Text fw={700} ff="heading" fz="lg">Change Password</Text>}>
+        <ChangePassword onDone={(u) => { setUser(u); setPwOpen(false); toast("Password changed"); }} onCancel={() => setPwOpen(false)} />
+      </Modal>
 
       <AppShell.Main bg="gray.0">
         {staging && (

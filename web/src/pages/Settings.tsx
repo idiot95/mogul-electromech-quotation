@@ -98,8 +98,8 @@ export function SettingsPage() {
       <Paper p="lg">
         <Stack gap="md">
           <Group justify="space-between">
-            <Title order={4}>Sales Team</Title>
-            <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => setEditSm("new")}>Add Salesperson</Button>
+            <Title order={4}>Sales Reps</Title>
+            <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => setEditSm("new")}>Add Sales Rep</Button>
           </Group>
           <Table highlightOnHover>
             <Table.Thead><Table.Tr><Table.Th>Name</Table.Th><Table.Th>Email</Table.Th><Table.Th>Phone</Table.Th><Table.Th>Status</Table.Th></Table.Tr></Table.Thead>
@@ -130,7 +130,7 @@ function SalesmanForm(props: { s: Salesman | null; onClose: () => void; onSaved:
     try {
       if (props.s) await api.put(`/salesmen/${props.s.id}`, d);
       else await api.post("/salesmen", d);
-      toast("Salesperson saved");
+      toast("Sales Rep saved");
       props.onSaved();
     } catch (e) {
       toast((e as Error).message, true);
@@ -138,7 +138,7 @@ function SalesmanForm(props: { s: Salesman | null; onClose: () => void; onSaved:
   }
   const f = (k: keyof Salesman) => ({ value: String(d[k] ?? ""), onChange: (e: { currentTarget: { value: string } }) => setD({ ...d, [k]: e.currentTarget.value }) });
   return (
-    <Modal opened onClose={props.onClose} size="lg" title={<Text fw={700} ff="heading" fz="lg">{props.s ? "Edit Salesperson" : "New Salesperson"}</Text>}>
+    <Modal opened onClose={props.onClose} size="lg" title={<Text fw={700} ff="heading" fz="lg">{props.s ? "Edit Sales Rep" : "New Sales Rep"}</Text>}>
       <Stack gap="sm">
         <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
           <TextInput label="Name" required data-autofocus {...f("name")} />

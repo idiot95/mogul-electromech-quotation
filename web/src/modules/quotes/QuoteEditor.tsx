@@ -60,12 +60,13 @@ let customersCache: Customer[] = [];
 export function QuoteEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { settings, salesmen, toast } = useApp();
+  const { settings, salesmen, toast, user } = useApp();
   const cfg = settings?.quotes;
   const defaultUnit = cfg?.defaultUnit || "Nos.";
 
   const [quote, setQuote] = useState<Quote | null>(null);
-  const [h, setH] = useState<QuoteHeader>(emptyHeader);
+  // a new quotation starts with the signed-in user's own Sales Rep, if their account is linked to one
+  const [h, setH] = useState<QuoteHeader>(() => ({ ...emptyHeader(), salesman_id: user.salesmanId ?? emptyHeader().salesman_id }));
   const [lines, setLines] = useState<EditLine[]>([blankLine(defaultUnit)]);
   const [customers, setCustomers] = useState<Customer[]>(customersCache);
   const [dirty, setDirty] = useState(false);
@@ -94,7 +95,7 @@ export function QuoteEditor() {
   useEffect(() => {
     if (!id) {
       setQuote(null);
-      setH({ ...emptyHeader(), vat_rate: cfg?.vatRate ?? 5 });
+      setH({ ...emptyHeader(), salesman_id: user.salesmanId ?? emptyHeader().salesman_id, vat_rate: cfg?.vatRate ?? 5 });
       setLines([blankLine(defaultUnit)]);
       setHistory([]);
       setDirty(false);
@@ -386,7 +387,7 @@ export function QuoteEditor() {
       ["Date", dateFmt(h.quote_date)],
       ["Customer", h.customer_name],
       ["Enquiry Reference", h.enquiry_ref || ""],
-      ["Salesperson", salesmen.find((s) => s.id === h.salesman_id)?.name || ""],
+      ["Sales Rep", salesmen.find((s) => s.id === h.salesman_id)?.name || ""],
       [],
       ["Sr", "Description", "Qty", "Unit", `Rate (${cur})`, `Amount (${cur})`],
     ];
@@ -479,7 +480,7 @@ export function QuoteEditor() {
                 <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                   <TextInput label="Enquiry Reference" value={h.enquiry_ref || ""} readOnly={readOnly} onChange={(e) => setField("enquiry_ref", e.currentTarget.value)} />
                   <Select
-                    label="Salesperson"
+                    label="Sales Rep"
                     leftSection={<IconUser size={16} />}
                     value={h.salesman_id ? String(h.salesman_id) : null}
                     readOnly={readOnly}

@@ -16,6 +16,27 @@ export interface Customer {
   last_quote_date?: string | null;
 }
 
+export interface SessionUser {
+  id: number;
+  username: string;
+  name: string;
+  role: "admin" | "user";
+  salesmanId: number | null;
+  mustChange: boolean;
+}
+
+export interface AppUser {
+  id: number;
+  username: string;
+  display_name: string;
+  role: "admin" | "user";
+  salesman_id: number | null;
+  active: number;
+  must_change_password: number;
+  locked_until: string | null;
+  created_at: string;
+}
+
 export interface Salesman {
   id: number;
   name: string;
@@ -147,6 +168,7 @@ export interface QuoteListRow {
   superseded_by: number | null;
   ordered_value: number;
   lost_reason: string | null;
+  created_by_name: string | null;
 }
 
 export interface FileRow {

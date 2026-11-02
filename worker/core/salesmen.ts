@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppContext } from "../env";
 import { body, bad, intParam, notFound, str } from "./util";
+import { requireAdmin } from "./auth";
 
 const FIELDS = ["name", "email", "phone", "email_template"] as const;
 
@@ -12,7 +13,7 @@ export const salesmenApi = new Hono<AppContext>()
     ).all();
     return c.json(results);
   })
-  .post("/", async (c) => {
+  .post("/", requireAdmin, async (c) => {
     const b = await body(c);
     const name = str(b.name, 200);
     if (!name) throw bad("Name is required");
@@ -23,7 +24,7 @@ export const salesmenApi = new Hono<AppContext>()
       .first();
     return c.json(row, 201);
   })
-  .put("/:id", async (c) => {
+  .put("/:id", requireAdmin, async (c) => {
     const id = intParam(c.req.param("id"));
     const b = await body(c);
     const name = str(b.name, 200);
@@ -34,6 +35,6 @@ export const salesmenApi = new Hono<AppContext>()
     )
       .bind(...vals, b.active === false || b.active === 0 ? 0 : 1, id)
       .first();
-    if (!row) throw notFound("Salesman not found");
+    if (!row) throw notFound("Sales Rep not found");
     return c.json(row);
   });

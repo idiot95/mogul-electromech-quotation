@@ -5,13 +5,16 @@ import { settingsApi } from "./core/settings";
 import { salesmenApi } from "./core/salesmen";
 import { customersApi } from "./core/customers";
 import { filesApi } from "./core/files";
+import { authApi, requireUser, usersApi } from "./core/auth";
 import { modules } from "./modules";
 
 const api = new Hono<AppContext>().basePath("/api");
 
-// No sign-in yet (by request). Microsoft sign-in will be added as middleware here.
-
+// Every route needs a signed-in user except health, login and logout (see requireUser).
+api.use("*", requireUser);
 api.get("/health", (c) => c.json({ ok: true, env: c.env.APP_ENV, modules: modules.map((m) => m.id) }));
+api.route("/auth", authApi);
+api.route("/users", usersApi);
 api.route("/settings", settingsApi);
 api.route("/salesmen", salesmenApi);
 api.route("/customers", customersApi);

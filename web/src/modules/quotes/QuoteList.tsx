@@ -12,7 +12,7 @@ import { Page } from "../../core/Page";
 import { RevBadge, STATUS_LABEL, StatusBadge } from "./status";
 
 export function QuoteList() {
-  const { salesmen, toast } = useApp();
+  const { salesmen, toast, isAdmin } = useApp();
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
   const [rows, setRows] = useState<QuoteListRow[] | null>(null);
@@ -44,7 +44,7 @@ export function QuoteList() {
 
   function exportExcel() {
     if (!rows) return;
-    const head = ["Quotation No.", "Date", "Customer", "Enquiry Reference", "Salesperson", "Status", "Lines", "Value excl. VAT", "Value incl. VAT", "Ordered Value excl. VAT", "Lost Reason"];
+    const head = ["Quotation No.", "Date", "Customer", "Enquiry Reference", "Sales Rep", "Status", "Lines", "Value excl. VAT", "Value incl. VAT", "Ordered Value excl. VAT", "Lost Reason"];
     const body = rows.map((r) => [quoteNo(r.base_number, r.rev), dateFmt(r.quote_date), r.customer_name, r.enquiry_ref, r.salesman_name, STATUS_LABEL[r.status], r.line_count, r.subtotal, r.total, r.ordered_value || null, r.lost_reason]);
     downloadSheet(`Quotations ${todayUAE()}`, "Quotations", [head, ...body], [16, 12, 40, 20, 16, 12, 8, 16, 16, 18, 18]);
   }
@@ -71,7 +71,7 @@ export function QuoteList() {
             onChange={(e) => set("q", e.currentTarget.value)}
             style={{ gridColumn: "span 2" }}
           />
-          <Select label="Salesperson" placeholder="All" clearable value={salesman || null} onChange={(v) => set("salesman_id", v)} data={salesmen.map((s) => ({ value: String(s.id), label: s.name }))} />
+          <Select label="Sales Rep" placeholder="All" clearable value={salesman || null} onChange={(v) => set("salesman_id", v)} data={salesmen.map((s) => ({ value: String(s.id), label: s.name }))} />
           <Select label="Status" placeholder="All" clearable value={status || null} onChange={(v) => set("status", v)}
             data={[
               { group: "Outcome", items: [{ value: "open", label: "Awaiting Response" }, { value: "ordered", label: "Won or Partly Won" }, { value: "won", label: "Won" }, { value: "partly_won", label: "Partly Won" }, { value: "lost", label: "Lost" }] },
@@ -110,7 +110,8 @@ export function QuoteList() {
                 <Table.Th>Date</Table.Th>
                 <Table.Th>Customer</Table.Th>
                 <Table.Th>Enquiry Reference</Table.Th>
-                <Table.Th>Salesperson</Table.Th>
+                <Table.Th>Sales Rep</Table.Th>
+                {isAdmin && <Table.Th>Created By</Table.Th>}
                 <Table.Th ta="right">Lines</Table.Th>
                 <Table.Th ta="right">Value excl. VAT (AED)</Table.Th>
                 <Table.Th>Status</Table.Th>
@@ -127,6 +128,7 @@ export function QuoteList() {
                   <Table.Td>{r.customer_name}</Table.Td>
                   <Table.Td>{r.enquiry_ref}</Table.Td>
                   <Table.Td>{r.salesman_name}</Table.Td>
+                  {isAdmin && <Table.Td fz="sm" c={r.created_by_name ? undefined : "dimmed"}>{r.created_by_name || "Before sign-in"}</Table.Td>}
                   <Table.Td ta="right">{r.line_count}</Table.Td>
                   <Table.Td ta="right" ff="monospace" fz="sm">
                     {money(r.subtotal)}
