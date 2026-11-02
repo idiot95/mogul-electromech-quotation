@@ -2,10 +2,9 @@ import { Hono } from "hono";
 import type { AppContext } from "./env";
 import { HttpError } from "./core/util";
 import { settingsApi } from "./core/settings";
-import { salesmenApi } from "./core/salesmen";
 import { customersApi } from "./core/customers";
 import { filesApi } from "./core/files";
-import { authApi, requireUser, usersApi } from "./core/auth";
+import { authApi, repsApi, requireUser, usersApi } from "./core/auth";
 import { modules } from "./modules";
 
 const api = new Hono<AppContext>().basePath("/api");
@@ -16,7 +15,7 @@ api.get("/health", (c) => c.json({ ok: true, env: c.env.APP_ENV, modules: module
 api.route("/auth", authApi);
 api.route("/users", usersApi);
 api.route("/settings", settingsApi);
-api.route("/salesmen", salesmenApi);
+api.route("/reps", repsApi);
 api.route("/customers", customersApi);
 api.route("/files", filesApi);
 for (const m of modules) api.route(`/${m.id}`, m.api);

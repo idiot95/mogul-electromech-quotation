@@ -1,26 +1,15 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, Checkbox, Code, Divider, Group, Image, Modal, NumberInput, Paper, SimpleGrid, Stack, Switch, Table, Text, TextInput, Textarea, Title } from "@mantine/core";
-import { IconDeviceFloppy, IconPlus } from "@tabler/icons-react";
+import { Button, Divider, Group, Image, NumberInput, Paper, SimpleGrid, Stack, Switch, TextInput, Textarea, Title } from "@mantine/core";
+import { IconDeviceFloppy } from "@tabler/icons-react";
 import { api } from "../lib/api";
-import type { CompanySettings, QuoteSettings, Salesman } from "../lib/types";
+import type { CompanySettings, QuoteSettings } from "../lib/types";
 import { useApp } from "../core/app-context";
 import { Page } from "../core/Page";
 
-export const DEFAULT_EMAIL_TEMPLATE = `Dear Sir,
-
-Please find attached our quotation {quote_no} against your enquiry {enquiry_ref}.
-
-Kindly let us know if you need any clarification.
-
-Best regards,
-{salesman}
-{company} · {company_phone}`;
-
 export function SettingsPage() {
-  const { settings, salesmen, reload, toast } = useApp();
+  const { settings, reload, toast } = useApp();
   const [company, setCompany] = useState<CompanySettings | null>(null);
   const [quotes, setQuotes] = useState<QuoteSettings | null>(null);
-  const [editSm, setEditSm] = useState<Salesman | "new" | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -95,68 +84,6 @@ export function SettingsPage() {
         </Stack>
       </Paper>
 
-      <Paper p="lg">
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Title order={4}>Sales Reps</Title>
-            <Button size="xs" variant="default" leftSection={<IconPlus size={14} />} onClick={() => setEditSm("new")}>Add Sales Rep</Button>
-          </Group>
-          <Table highlightOnHover>
-            <Table.Thead><Table.Tr><Table.Th>Name</Table.Th><Table.Th>Email</Table.Th><Table.Th>Phone</Table.Th><Table.Th>Status</Table.Th></Table.Tr></Table.Thead>
-            <Table.Tbody>
-              {salesmen.map((s) => (
-                <Table.Tr key={s.id} onClick={() => setEditSm(s)} style={{ cursor: "pointer" }}>
-                  <Table.Td fw={600}>{s.name}</Table.Td>
-                  <Table.Td>{s.email}</Table.Td>
-                  <Table.Td>{s.phone}</Table.Td>
-                  <Table.Td><Badge variant="light" color={s.active ? "teal" : "gray"}>{s.active ? "Active" : "Inactive"}</Badge></Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Stack>
-      </Paper>
-
-
-      {editSm && <SalesmanForm s={editSm === "new" ? null : editSm} onClose={() => setEditSm(null)} onSaved={async () => { setEditSm(null); await reload(); }} />}
     </Page>
-  );
-}
-
-function SalesmanForm(props: { s: Salesman | null; onClose: () => void; onSaved: () => void }) {
-  const { toast } = useApp();
-  const [d, setD] = useState<Partial<Salesman>>(props.s ?? { name: "", active: 1, email_template: DEFAULT_EMAIL_TEMPLATE });
-  async function save() {
-    try {
-      if (props.s) await api.put(`/salesmen/${props.s.id}`, d);
-      else await api.post("/salesmen", d);
-      toast("Sales Rep saved");
-      props.onSaved();
-    } catch (e) {
-      toast((e as Error).message, true);
-    }
-  }
-  const f = (k: keyof Salesman) => ({ value: String(d[k] ?? ""), onChange: (e: { currentTarget: { value: string } }) => setD({ ...d, [k]: e.currentTarget.value }) });
-  return (
-    <Modal opened onClose={props.onClose} size="lg" title={<Text fw={700} ff="heading" fz="lg">{props.s ? "Edit Sales Rep" : "New Sales Rep"}</Text>}>
-      <Stack gap="sm">
-        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
-          <TextInput label="Name" required data-autofocus {...f("name")} />
-          <TextInput label="Email" {...f("email")} />
-          <TextInput label="Phone" {...f("phone")} />
-        </SimpleGrid>
-        <Textarea label="Email Template" autosize minRows={8} value={d.email_template ?? DEFAULT_EMAIL_TEMPLATE} onChange={(e) => setD({ ...d, email_template: e.currentTarget.value })} />
-        <Text fz="xs" c="dimmed">
-          Fields: <Code>{"{quote_no} {enquiry_ref} {customer} {salesman} {company} {company_phone} {total}"}</Code>
-        </Text>
-        <Group justify="space-between" mt="sm">
-          {props.s ? <Checkbox label="Active" checked={d.active !== 0} onChange={(e) => setD({ ...d, active: e.currentTarget.checked ? 1 : 0 })} /> : <span />}
-          <Group gap="sm">
-            <Button variant="default" onClick={props.onClose}>Cancel</Button>
-            <Button onClick={save}>Save</Button>
-          </Group>
-        </Group>
-      </Stack>
-    </Modal>
   );
 }

@@ -11,7 +11,6 @@ export interface SessionUser {
   username: string;
   name: string;
   role: "admin" | "user";
-  salesmanId: number | null;
   mustChange: boolean;
   sessionId: string;
 }

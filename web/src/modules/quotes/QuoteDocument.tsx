@@ -9,7 +9,7 @@ export interface DocQuote {
   customer_address: string | null;
   attention: string | null;
   enquiry_ref: string | null;
-  salesman_name: string | null;
+  sales_rep_name: string | null;
   payment_terms: string | null;
   validity: string | null;
   delivery_terms: string | null;
@@ -53,7 +53,7 @@ export function QuoteDocument({ q, company, cfg }: { q: DocQuote; company: Compa
           <span>No.</span><b>{quoteNo(q.base_number, q.rev)}</b>
           <span>Date</span><span>{dateFmt(q.quote_date)}</span>
           {q.enquiry_ref && <><span>Enquiry ref.</span><span>{q.enquiry_ref}</span></>}
-          {q.salesman_name && <><span>Sales Rep</span><span>{q.salesman_name}</span></>}
+          {q.sales_rep_name && <><span>Sales Rep</span><span>{q.sales_rep_name}</span></>}
           {q.delivery_terms && <><span>Delivery terms</span><span>{q.delivery_terms}</span></>}
           {q.validity && <><span>Quote validity</span><span>{q.validity}</span></>}
           {q.payment_terms && <><span>Terms of payment</span><span>{q.payment_terms}</span></>}

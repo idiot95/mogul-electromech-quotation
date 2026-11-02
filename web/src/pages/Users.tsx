@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { ActionIcon, Badge, Button, Code, CopyButton, Group, Menu, Modal, Paper, ScrollArea, Select, SimpleGrid, Stack, Switch, Table, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Badge, Button, Code, CopyButton, Group, Menu, Modal, Paper, ScrollArea, Select, SimpleGrid, Stack, Switch, Table, Text, TextInput, Textarea, Tooltip } from "@mantine/core";
 import { IconCheck, IconCopy, IconDots, IconKey, IconPencil, IconPlus, IconRefresh } from "@tabler/icons-react";
 import { api } from "../lib/api";
 import type { AppUser } from "../lib/types";
 import { dateFmt } from "../lib/format";
 import { useApp } from "../core/app-context";
 import { Page } from "../core/Page";
+import { DEFAULT_EMAIL_TEMPLATE, TEMPLATE_FIELDS } from "../lib/email-template";
 
 /** A readable temporary password, e.g. "Maple-Quartz-4821". The user replaces it at first sign-in. */
 function tempPassword() {
@@ -15,12 +16,13 @@ function tempPassword() {
 }
 
 export function UsersPage() {
-  const { user: me, salesmen, toast } = useApp();
+  const { user: me, reload, toast } = useApp();
   const [rows, setRows] = useState<AppUser[] | null>(null);
   const [edit, setEdit] = useState<AppUser | "new" | null>(null);
   const [shown, setShown] = useState<{ username: string; password: string } | null>(null);
 
-  const load = () => api.get<AppUser[]>("/users").then(setRows, (e) => toast(e.message, true));
+  // users are the Sales Reps, so the Sales Rep lists elsewhere are refreshed too
+  const load = () => Promise.all([api.get<AppUser[]>("/users").then(setRows), reload()]).catch((e) => toast(e.message, true));
   useEffect(() => {
     load();
   }, []);
@@ -36,8 +38,6 @@ export function UsersPage() {
     }
   }
 
-  const repName = (id: number | null) => salesmen.find((s) => s.id === id)?.name;
-
   return (
     <Page crumbs={[{ label: "Dashboard", to: "/" }]} title="Users" actions={<Button leftSection={<IconPlus size={16} />} onClick={() => setEdit("new")}>New User</Button>}>
       <Paper p={0}>
@@ -45,10 +45,11 @@ export function UsersPage() {
           <Table highlightOnHover miw={760} verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Name</Table.Th>
+                <Table.Th>Full Name</Table.Th>
                 <Table.Th>Username</Table.Th>
+                <Table.Th>Email</Table.Th>
+                <Table.Th>Phone</Table.Th>
                 <Table.Th>Role</Table.Th>
-                <Table.Th>Sales Rep</Table.Th>
                 <Table.Th>Status</Table.Th>
                 <Table.Th>Created</Table.Th>
                 <Table.Th w={50} />
@@ -59,10 +60,11 @@ export function UsersPage() {
                 <Table.Tr key={u.id} style={{ opacity: u.active ? 1 : 0.5 }}>
                   <Table.Td fw={600}>{u.display_name}{u.id === me.id && <Text span c="dimmed" fz="sm" fw={400}> (you)</Text>}</Table.Td>
                   <Table.Td ff="monospace" fz="sm">{u.username}</Table.Td>
+                  <Table.Td fz="sm">{u.email}</Table.Td>
+                  <Table.Td fz="sm">{u.phone}</Table.Td>
                   <Table.Td><Badge variant="light" color={u.role === "admin" ? "maroon" : "gray"}>{u.role === "admin" ? "Admin" : "User"}</Badge></Table.Td>
-                  <Table.Td>{repName(u.salesman_id) || <Text span c="dimmed">—</Text>}</Table.Td>
                   <Table.Td>
-                    {!u.active ? <Badge variant="light" color="gray">Inactive</Badge>
+                    {!u.active ? <Badge variant="light" color="gray">{u.must_change_password ? "No sign-in" : "Inactive"}</Badge>
                       : u.locked_until && Date.parse(u.locked_until.replace(" ", "T") + "Z") > Date.now() ? <Badge variant="light" color="orange">Locked</Badge>
                       : u.must_change_password ? <Badge variant="light" color="yellow">Awaiting first sign-in</Badge>
                       : <Badge variant="light" color="teal">Active</Badge>}
@@ -89,7 +91,6 @@ export function UsersPage() {
       {edit && (
         <UserForm
           u={edit === "new" ? null : edit}
-          reps={salesmen.filter((s) => s.active || (edit !== "new" && s.id === edit.salesman_id)).map((s) => ({ value: String(s.id), label: s.name }))}
           onClose={() => setEdit(null)}
           onSaved={(created) => {
             setEdit(null);
@@ -120,12 +121,14 @@ export function UsersPage() {
   );
 }
 
-function UserForm(props: { u: AppUser | null; reps: { value: string; label: string }[]; onClose: () => void; onSaved: (created?: { username: string; password: string }) => void }) {
+function UserForm(props: { u: AppUser | null; onClose: () => void; onSaved: (created?: { username: string; password: string }) => void }) {
   const { toast } = useApp();
   const [name, setName] = useState(props.u?.display_name || "");
   const [username, setUsername] = useState(props.u?.username || "");
   const [role, setRole] = useState<string>(props.u?.role || "user");
-  const [rep, setRep] = useState<string | null>(props.u?.salesman_id ? String(props.u.salesman_id) : null);
+  const [email, setEmail] = useState(props.u?.email || "");
+  const [phone, setPhone] = useState(props.u?.phone || "");
+  const [template, setTemplate] = useState(props.u?.email_template || DEFAULT_EMAIL_TEMPLATE);
   const [active, setActive] = useState(props.u ? !!props.u.active : true);
   const [password, setPassword] = useState(tempPassword);
   const [busy, setBusy] = useState(false);
@@ -133,7 +136,7 @@ function UserForm(props: { u: AppUser | null; reps: { value: string; label: stri
   async function save() {
     setBusy(true);
     try {
-      const data = { display_name: name, role, salesman_id: rep ? Number(rep) : null, active };
+      const data = { display_name: name, email, phone, email_template: template === DEFAULT_EMAIL_TEMPLATE ? null : template, role, active };
       if (props.u) {
         await api.put(`/users/${props.u.id}`, data);
         toast("User saved");
@@ -156,10 +159,12 @@ function UserForm(props: { u: AppUser | null; reps: { value: string; label: stri
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           <TextInput label="Full Name" required data-autofocus value={name} onChange={(e) => setName(e.currentTarget.value)} />
           <TextInput label="Username" required disabled={!!props.u} autoCapitalize="none" value={username} onChange={(e) => setUsername(e.currentTarget.value)} />
+          <TextInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
+          <TextInput label="Phone" value={phone} onChange={(e) => setPhone(e.currentTarget.value)} />
           <Select label="Role" value={role} onChange={(v) => setRole(v || "user")} allowDeselect={false}
             data={[{ value: "user", label: "User: own quotations only" }, { value: "admin", label: "Admin: all quotations and settings" }]} />
-          <Select label="Sales Rep" clearable value={rep} onChange={setRep} data={props.reps} />
         </SimpleGrid>
+        <Textarea label="Email Template" description={`Fields: ${TEMPLATE_FIELDS}`} autosize minRows={6} maxRows={12} value={template} onChange={(e) => setTemplate(e.currentTarget.value)} />
         {!props.u && (
           <TextInput
             label="Temporary Password"

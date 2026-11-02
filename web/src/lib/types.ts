@@ -21,7 +21,6 @@ export interface SessionUser {
   username: string;
   name: string;
   role: "admin" | "user";
-  salesmanId: number | null;
   mustChange: boolean;
 }
 
@@ -29,20 +28,20 @@ export interface AppUser {
   id: number;
   username: string;
   display_name: string;
+  email: string | null;
+  phone: string | null;
+  email_template: string | null;
   role: "admin" | "user";
-  salesman_id: number | null;
   active: number;
   must_change_password: number;
   locked_until: string | null;
   created_at: string;
 }
 
-export interface Salesman {
+/** A user, as picked for the Sales Rep on a quotation. */
+export interface Rep {
   id: number;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  email_template: string | null;
+  display_name: string;
   active: number;
 }
 
@@ -93,7 +92,7 @@ export interface QuoteHeader {
   customer_address: string | null;
   attention: string | null;
   enquiry_ref: string | null;
-  salesman_id: number | null;
+  sales_rep_id: number | null;
   payment_terms: string | null;
   validity: string | null;
   delivery_terms: string | null;
@@ -113,10 +112,10 @@ export interface Quote extends QuoteHeader {
   vat_amount: number;
   total: number;
   superseded_by: number | null;
-  salesman_name: string | null;
-  salesman_email: string | null;
-  salesman_phone: string | null;
-  salesman_email_template: string | null;
+  sales_rep_name: string | null;
+  sales_rep_email: string | null;
+  sales_rep_phone: string | null;
+  sales_rep_email_template: string | null;
   customer_email: string | null;
   created_at: string;
   updated_at: string;
@@ -160,7 +159,7 @@ export interface QuoteListRow {
   customer_id: number | null;
   customer_name: string;
   enquiry_ref: string | null;
-  salesman_name: string | null;
+  sales_rep_name: string | null;
   subtotal: number;
   total: number;
   currency: string;

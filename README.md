@@ -19,11 +19,12 @@ Module 1 is **Quotations**. Runs on Cloudflare's free tier (Worker + D1 + R2).
 - Quote list with search (number, customer, enquiry ref, item text), filters, CSV export.
 - Dashboard: last 4 weeks (or 1 week / 3 / 12 months) by customer, by Sales Rep, largest quotes.
 
-**Core** (shared by future modules): customers + CSV/Excel import, salesmen, company settings / letterhead, numbering, file storage (R2), paste engine.
+**Core** (shared by future modules): customers + CSV/Excel import, users (also the Sales Reps), company settings / letterhead, numbering, file storage (R2), paste engine.
 
 **Sign-in and access** — username and password (PBKDF2), managed by an admin on the Users page. Users see and edit only the
 quotations they created (quotation numbers stay one running sequence); admins see everything and manage users, Sales Reps and
-settings. A user linked to a Sales Rep gets that rep on new quotations. New users and password resets get a temporary password
+settings. Sales Reps are the users: a new quotation's Sales Rep is the signed-in user (any active user can be picked), and
+each user's Full Name, Email, Phone and email template are used on the quotation and in the email. New users and password resets get a temporary password
 that must be changed at first sign-in; 5 wrong passwords lock the account for 15 minutes. Sessions are a signed HttpOnly,
 SameSite=Strict cookie, re-checked against the database every 10 minutes (sign-out and deactivation take effect within that).
 First admin of an environment: `node scripts/create-user.mjs staging|production <username> "<Full Name>" --admin`.
@@ -38,7 +39,7 @@ web/src/           React app (Vite + Mantine UI, brand theme in theme.ts)
   core/            shell, sidebar, shared dialogs
   modules/quotes/  editor, paste preview, grid, print document, list, home widget
 shared/            paste engine + table layout from PDF/OCR word positions (used by the browser; unit-tested)
-migrations/        D1 schema + defaults (company details, 6 salesmen, Star Super Cement)
+migrations/        D1 schema + defaults (company details, Star Super Cement); the first 6 Sales Reps became users in 0004
 test/              paste-engine tests — add real enquiries here
 ```
 

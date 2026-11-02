@@ -12,11 +12,11 @@ interface Summary {
   days: number;
   kpi: { quotes: number; amount: number; customers: number };
   byCustomer: { name: string; amount: number; quotes: number }[];
-  largest: { id: number; base_number: string; rev: number; customer_name: string; subtotal: number; status: QuoteStatus; salesman_name: string | null }[];
-  bySalesman: { name: string; amount: number; quotes: number }[];
+  largest: { id: number; base_number: string; rev: number; customer_name: string; subtotal: number; status: QuoteStatus; sales_rep_name: string | null }[];
+  byRep: { name: string; amount: number; quotes: number }[];
   byStatus: { status: QuoteStatus; quotes: number; amount: number }[];
   received: { orders: number; amount: number };
-  followUp: { id: number; base_number: string; rev: number; quote_date: string; customer_name: string; subtotal: number; status: QuoteStatus; salesman_name: string | null }[];
+  followUp: { id: number; base_number: string; rev: number; quote_date: string; customer_name: string; subtotal: number; status: QuoteStatus; sales_rep_name: string | null }[];
   lostWhy: { name: string; amount: number; quotes: number }[];
 }
 
@@ -97,7 +97,7 @@ export function QuotesHomeWidget() {
                   <Table.Tr key={q.id}>
                     <Table.Td style={{ whiteSpace: "nowrap" }}><Anchor component={Link} to={`/quotes/${q.id}`} ff="monospace" fz="sm">{quoteNo(q.base_number, q.rev)}</Anchor></Table.Td>
                     <Table.Td>{q.customer_name}</Table.Td>
-                    <Table.Td>{q.salesman_name}</Table.Td>
+                    <Table.Td>{q.sales_rep_name}</Table.Td>
                     <Table.Td c="dimmed" fz="sm" style={{ whiteSpace: "nowrap" }}>{ago(q.quote_date)}</Table.Td>
                     <Table.Td ta="right" ff="monospace" fz="sm">{money0(q.subtotal)}</Table.Td>
                   </Table.Tr>
@@ -109,7 +109,7 @@ export function QuotesHomeWidget() {
       )}
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <Paper p="lg"><Title order={4} mb="lg">Quoted Value by Customer (AED)</Title>{s && <Bars rows={s.byCustomer} />}</Paper>
-        <Paper p="lg"><Title order={4} mb="lg">Quoted Value by Sales Rep (AED)</Title>{s && <Bars rows={s.bySalesman} />}</Paper>
+        <Paper p="lg"><Title order={4} mb="lg">Quoted Value by Sales Rep (AED)</Title>{s && <Bars rows={s.byRep} />}</Paper>
         {s && s.lostWhy.length > 0 && <Paper p="lg"><Title order={4} mb="lg">Lost Value by Reason (AED)</Title><Bars rows={s.lostWhy} /></Paper>}
       </SimpleGrid>
       <Paper p="lg">
@@ -125,7 +125,7 @@ export function QuotesHomeWidget() {
                 <Table.Tr key={q.id}>
                   <Table.Td style={{ whiteSpace: "nowrap" }}><Anchor component={Link} to={`/quotes/${q.id}`} ff="monospace" fz="sm">{quoteNo(q.base_number, q.rev)}</Anchor></Table.Td>
                   <Table.Td>{q.customer_name}</Table.Td>
-                  <Table.Td>{q.salesman_name}</Table.Td>
+                  <Table.Td>{q.sales_rep_name}</Table.Td>
                   <Table.Td><StatusBadge s={q.status} /></Table.Td>
                   <Table.Td ta="right" ff="monospace" fz="sm">{money0(q.subtotal)}</Table.Td>
                 </Table.Tr>

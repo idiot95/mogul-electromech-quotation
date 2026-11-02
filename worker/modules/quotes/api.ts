@@ -12,7 +12,7 @@ const LOST_REASONS = ["Price", "Delivery time", "No response", "Went to competit
 
 const HEADER_FIELDS = [
   "quote_date", "customer_id", "customer_name", "customer_address", "attention", "enquiry_ref",
-  "salesman_id", "payment_terms", "validity", "delivery_terms", "vat_terms", "vat_rate",
+  "sales_rep_id", "payment_terms", "validity", "delivery_terms", "vat_terms", "vat_rate",
   "notes", "internal_notes",
 ] as const;
 
@@ -57,7 +57,7 @@ function header(b: QuoteIn, defaults: { vatRate: number }) {
     customer_address: str(b.customer_address, 2000),
     attention: str(b.attention, 300),
     enquiry_ref: str(b.enquiry_ref, 200),
-    salesman_id: num(b.salesman_id),
+    sales_rep_id: num(b.sales_rep_id),
     payment_terms: str(b.payment_terms, 500),
     validity: str(b.validity, 200),
     delivery_terms: str(b.delivery_terms, 500),
@@ -94,10 +94,10 @@ function loadStatements(db: D1Database, idSql: string, args: unknown[], user: Se
     // a quotation the user may not see comes back empty, and assemble() answers "not found"
     db
       .prepare(
-        `SELECT q.*, s.name AS salesman_name, s.email AS salesman_email, s.phone AS salesman_phone,
-                s.email_template AS salesman_email_template, c.email AS customer_email
+        `SELECT q.*, r.display_name AS sales_rep_name, r.email AS sales_rep_email, r.phone AS sales_rep_phone,
+                r.email_template AS sales_rep_email_template, c.email AS customer_email
          FROM q_quotes q
-         LEFT JOIN salesmen s ON s.id = q.salesman_id
+         LEFT JOIN users r ON r.id = q.sales_rep_id
          LEFT JOIN customers c ON c.id = q.customer_id
          WHERE q.id = ${idSql} AND ${own.sql}`,
       )
@@ -215,7 +215,7 @@ export const quotesApi = new Hono<AppContext>()
     const q = (c.req.query("q") || "").trim();
     const status = c.req.query("status") || "";
     const customerId = Number(c.req.query("customer_id")) || 0;
-    const salesmanId = Number(c.req.query("salesman_id")) || 0;
+    const salesRepId = Number(c.req.query("sales_rep_id")) || 0;
     const from = c.req.query("from") || "";
     const to = c.req.query("to") || "";
     const allRevs = c.req.query("all_revisions") === "1";
@@ -241,9 +241,9 @@ export const quotesApi = new Hono<AppContext>()
       where.push("q.customer_id = ?");
       args.push(customerId);
     }
-    if (salesmanId) {
-      where.push("q.salesman_id = ?");
-      args.push(salesmanId);
+    if (salesRepId) {
+      where.push("q.sales_rep_id = ?");
+      args.push(salesRepId);
     }
     if (/^\d{4}-\d{2}-\d{2}$/.test(from)) {
       where.push("q.quote_date >= ?");
@@ -255,11 +255,11 @@ export const quotesApi = new Hono<AppContext>()
     }
     const { results } = await c.env.DB.prepare(
       `SELECT q.id, q.base_number, q.rev, q.quote_date, q.status, q.customer_id, q.customer_name, q.enquiry_ref,
-              q.salesman_id, s.name AS salesman_name, q.subtotal, q.total, q.currency, q.superseded_by, q.updated_at,
+              q.sales_rep_id, r.display_name AS sales_rep_name, q.subtotal, q.total, q.currency, q.superseded_by, q.updated_at,
               (SELECT COUNT(*) FROM q_lines l WHERE l.quote_id = q.id AND l.kind = 'item') AS line_count,
               (SELECT COALESCE(SUM(o.subtotal), 0) FROM q_orders o WHERE o.quote_id = q.id) AS ordered_value,
               q.lost_reason, u.display_name AS created_by_name
-       FROM q_quotes q LEFT JOIN salesmen s ON s.id = q.salesman_id LEFT JOIN users u ON u.id = q.created_by
+       FROM q_quotes q LEFT JOIN users r ON r.id = q.sales_rep_id LEFT JOIN users u ON u.id = q.created_by
        ${where.length ? "WHERE " + where.join(" AND ") : ""}
        ORDER BY q.quote_date DESC, q.id DESC LIMIT ?`,
     )
@@ -275,21 +275,21 @@ export const quotesApi = new Hono<AppContext>()
     const own = ownQuote(c.get("user"), "q.created_by"); // users see the figures for their own quotations
     const base = `FROM q_quotes q WHERE q.superseded_by IS NULL AND q.status != 'cancelled' AND q.quote_date >= ? AND ${own.sql}`;
     const db = c.env.DB;
-    const [kpi, byCustomer, largest, byStatus, bySalesman, received, followUp, lostWhy] = await db.batch([
+    const [kpi, byCustomer, largest, byStatus, byRep, received, followUp, lostWhy] = await db.batch([
       db.prepare(`SELECT COUNT(*) AS quotes, COALESCE(SUM(q.subtotal),0) AS amount, COUNT(DISTINCT q.customer_name) AS customers ${base}`).bind(since, ...own.args),
       db.prepare(`SELECT q.customer_name AS name, SUM(q.subtotal) AS amount, COUNT(*) AS quotes ${base} GROUP BY q.customer_name ORDER BY amount DESC LIMIT 8`).bind(since, ...own.args),
       db.prepare(
-        `SELECT q.id, q.base_number, q.rev, q.customer_name, q.subtotal, q.status, s.name AS salesman_name
-         FROM q_quotes q LEFT JOIN salesmen s ON s.id = q.salesman_id
+        `SELECT q.id, q.base_number, q.rev, q.customer_name, q.subtotal, q.status, r.display_name AS sales_rep_name
+         FROM q_quotes q LEFT JOIN users r ON r.id = q.sales_rep_id
          WHERE q.superseded_by IS NULL AND q.status != 'cancelled' AND q.quote_date >= ? AND ${own.sql}
          ORDER BY q.subtotal DESC LIMIT 6`,
       ).bind(since, ...own.args),
       db.prepare(`SELECT q.status, COUNT(*) AS quotes, SUM(q.subtotal) AS amount ${base} GROUP BY q.status`).bind(since, ...own.args),
       db.prepare(
-        `SELECT COALESCE(s.name, 'Unassigned') AS name, COUNT(*) AS quotes, SUM(q.subtotal) AS amount
-         FROM q_quotes q LEFT JOIN salesmen s ON s.id = q.salesman_id
+        `SELECT COALESCE(r.display_name, 'Unassigned') AS name, COUNT(*) AS quotes, SUM(q.subtotal) AS amount
+         FROM q_quotes q LEFT JOIN users r ON r.id = q.sales_rep_id
          WHERE q.superseded_by IS NULL AND q.status != 'cancelled' AND q.quote_date >= ? AND ${own.sql}
-         GROUP BY s.name ORDER BY amount DESC`,
+         GROUP BY r.display_name ORDER BY amount DESC`,
       ).bind(since, ...own.args),
       // orders received in the period, whenever the quote was made
       db.prepare(
@@ -298,8 +298,8 @@ export const quotesApi = new Hono<AppContext>()
       ).bind(since, ...own.args),
       // sent more than a week ago, no answer yet
       db.prepare(
-        `SELECT q.id, q.base_number, q.rev, q.quote_date, q.customer_name, q.subtotal, q.status, s.name AS salesman_name
-         FROM q_quotes q LEFT JOIN salesmen s ON s.id = q.salesman_id
+        `SELECT q.id, q.base_number, q.rev, q.quote_date, q.customer_name, q.subtotal, q.status, r.display_name AS sales_rep_name
+         FROM q_quotes q LEFT JOIN users r ON r.id = q.sales_rep_id
          WHERE q.superseded_by IS NULL AND q.status IN ('printed', 'emailed') AND q.quote_date <= date(?, '-7 days') AND q.quote_date >= date(?, '-120 days') AND ${own.sql}
          ORDER BY q.subtotal DESC LIMIT 8`,
       ).bind(today(), today(), ...own.args),
@@ -312,7 +312,7 @@ export const quotesApi = new Hono<AppContext>()
       byCustomer: byCustomer.results,
       largest: largest.results,
       byStatus: byStatus.results,
-      bySalesman: bySalesman.results,
+      byRep: byRep.results,
       received: received.results[0],
       followUp: followUp.results,
       lostWhy: lostWhy.results,

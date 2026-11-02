@@ -12,13 +12,13 @@ import { Page } from "../../core/Page";
 import { RevBadge, STATUS_LABEL, StatusBadge } from "./status";
 
 export function QuoteList() {
-  const { salesmen, toast, isAdmin } = useApp();
+  const { reps, toast, isAdmin } = useApp();
   const nav = useNavigate();
   const [sp, setSp] = useSearchParams();
   const [rows, setRows] = useState<QuoteListRow[] | null>(null);
   const q = sp.get("q") || "";
   const status = sp.get("status") || "";
-  const salesman = sp.get("salesman_id") || "";
+  const rep = sp.get("sales_rep_id") || "";
   const customer = sp.get("customer_id") || "";
   const from = sp.get("from") || "";
   const to = sp.get("to") || "";
@@ -34,18 +34,18 @@ export function QuoteList() {
   useEffect(() => {
     const t = setTimeout(() => {
       api
-        .get<QuoteListRow[]>("/quotes" + qs({ q, status, salesman_id: salesman, customer_id: customer, from, to, all_revisions: allRevs ? 1 : 0 }))
+        .get<QuoteListRow[]>("/quotes" + qs({ q, status, sales_rep_id: rep, customer_id: customer, from, to, all_revisions: allRevs ? 1 : 0 }))
         .then(setRows, (e) => toast(e.message, true));
     }, 200);
     return () => clearTimeout(t);
-  }, [q, status, salesman, customer, from, to, allRevs]);
+  }, [q, status, rep, customer, from, to, allRevs]);
 
   const total = rows?.filter((r) => r.status !== "cancelled").reduce((s, r) => s + r.subtotal, 0) ?? 0;
 
   function exportExcel() {
     if (!rows) return;
     const head = ["Quotation No.", "Date", "Customer", "Enquiry Reference", "Sales Rep", "Status", "Lines", "Value excl. VAT", "Value incl. VAT", "Ordered Value excl. VAT", "Lost Reason"];
-    const body = rows.map((r) => [quoteNo(r.base_number, r.rev), dateFmt(r.quote_date), r.customer_name, r.enquiry_ref, r.salesman_name, STATUS_LABEL[r.status], r.line_count, r.subtotal, r.total, r.ordered_value || null, r.lost_reason]);
+    const body = rows.map((r) => [quoteNo(r.base_number, r.rev), dateFmt(r.quote_date), r.customer_name, r.enquiry_ref, r.sales_rep_name, STATUS_LABEL[r.status], r.line_count, r.subtotal, r.total, r.ordered_value || null, r.lost_reason]);
     downloadSheet(`Quotations ${todayUAE()}`, "Quotations", [head, ...body], [16, 12, 40, 20, 16, 12, 8, 16, 16, 18, 18]);
   }
 
@@ -71,7 +71,7 @@ export function QuoteList() {
             onChange={(e) => set("q", e.currentTarget.value)}
             style={{ gridColumn: "span 2" }}
           />
-          <Select label="Sales Rep" placeholder="All" clearable value={salesman || null} onChange={(v) => set("salesman_id", v)} data={salesmen.map((s) => ({ value: String(s.id), label: s.name }))} />
+          <Select label="Sales Rep" placeholder="All" clearable value={rep || null} onChange={(v) => set("sales_rep_id", v)} data={reps.map((r) => ({ value: String(r.id), label: r.display_name }))} />
           <Select label="Status" placeholder="All" clearable value={status || null} onChange={(v) => set("status", v)}
             data={[
               { group: "Outcome", items: [{ value: "open", label: "Awaiting Response" }, { value: "ordered", label: "Won or Partly Won" }, { value: "won", label: "Won" }, { value: "partly_won", label: "Partly Won" }, { value: "lost", label: "Lost" }] },
@@ -127,7 +127,7 @@ export function QuoteList() {
                   <Table.Td style={{ whiteSpace: "nowrap" }}>{dateFmt(r.quote_date)}</Table.Td>
                   <Table.Td>{r.customer_name}</Table.Td>
                   <Table.Td>{r.enquiry_ref}</Table.Td>
-                  <Table.Td>{r.salesman_name}</Table.Td>
+                  <Table.Td>{r.sales_rep_name}</Table.Td>
                   {isAdmin && <Table.Td fz="sm" c={r.created_by_name ? undefined : "dimmed"}>{r.created_by_name || "Before sign-in"}</Table.Td>}
                   <Table.Td ta="right">{r.line_count}</Table.Td>
                   <Table.Td ta="right" ff="monospace" fz="sm">

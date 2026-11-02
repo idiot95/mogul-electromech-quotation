@@ -66,7 +66,6 @@ interface Claims {
   un: string;
   n: string;
   r: "admin" | "user";
-  sr: number | null;
   mc: 0 | 1;
   iat: number; // when the claims were last read from the database (seconds)
   exp: number;
@@ -110,7 +109,7 @@ const cookieName = (c: Context<AppContext>) => (c.env.APP_ENV === "local" ? "mws
 async function issue(c: Context<AppContext>, sid: string, u: UserRow, expiresAt: string) {
   const now = Math.floor(Date.now() / 1000);
   const exp = Math.floor(Date.parse(expiresAt.replace(" ", "T") + "Z") / 1000);
-  const claims: Claims = { s: sid, u: u.id, un: u.username, n: u.display_name, r: u.role, sr: u.salesman_id, mc: u.must_change_password ? 1 : 0, iat: now, exp };
+  const claims: Claims = { s: sid, u: u.id, un: u.username, n: u.display_name, r: u.role, mc: u.must_change_password ? 1 : 0, iat: now, exp };
   setCookie(c, cookieName(c), await sign(c.env.DB, claims), {
     httpOnly: true,
     secure: c.env.APP_ENV !== "local",
@@ -121,7 +120,7 @@ async function issue(c: Context<AppContext>, sid: string, u: UserRow, expiresAt:
   return toUser(claims);
 }
 
-const toUser = (c: Claims): SessionUser => ({ id: c.u, username: c.un, name: c.n, role: c.r, salesmanId: c.sr, mustChange: !!c.mc, sessionId: c.s });
+const toUser = (c: Claims): SessionUser => ({ id: c.u, username: c.un, name: c.n, role: c.r, mustChange: !!c.mc, sessionId: c.s });
 
 interface UserRow {
   id: number;
@@ -129,7 +128,6 @@ interface UserRow {
   display_name: string;
   password_hash: string;
   role: "admin" | "user";
-  salesman_id: number | null;
   active: number;
   must_change_password: number;
   failed_logins: number;
@@ -244,9 +242,17 @@ export const authApi = new Hono<AppContext>()
     return c.json(await issue(c, me.sessionId, { ...u, must_change_password: 0 }, (row.results[0] as { expires_at: string }).expires_at));
   });
 
+// ---------- Sales Reps: every user can be picked as the Sales Rep on a quotation ----------
+
+export const repsApi = new Hono<AppContext>().get("/", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT id, display_name, active FROM users ORDER BY display_name COLLATE NOCASE").all();
+  return c.json(results);
+});
+
 // ---------- users (admin) ----------
 
-const USER_COLS = "id, username, display_name, role, salesman_id, active, must_change_password, locked_until, created_at";
+const USER_COLS = "id, username, display_name, email, phone, email_template, role, active, must_change_password, locked_until, created_at";
+const contact = (b: Record<string, unknown>) => [str(b.email, 200), str(b.phone, 100), str(b.email_template, 5000)];
 
 function cleanUsername(v: unknown) {
   const u = (str(v, 60) || "").toLowerCase();
@@ -277,9 +283,10 @@ export const usersApi = new Hono<AppContext>()
     const exists = await c.env.DB.prepare("SELECT 1 FROM users WHERE username = ?").bind(username).first();
     if (exists) throw bad("That username is taken.");
     const row = await c.env.DB.prepare(
-      `INSERT INTO users (username, display_name, password_hash, role, salesman_id, must_change_password) VALUES (?, ?, ?, ?, ?, 1) RETURNING ${USER_COLS}`,
+      `INSERT INTO users (username, display_name, email, phone, email_template, password_hash, role, must_change_password)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING ${USER_COLS}`,
     )
-      .bind(username, name, await hashPassword(password), role(b.role), Number(b.salesman_id) || null)
+      .bind(username, name, ...contact(b), await hashPassword(password), role(b.role))
       .first();
     return c.json(row, 201);
   })
@@ -293,8 +300,11 @@ export const usersApi = new Hono<AppContext>()
     const db = c.env.DB;
     const [row] = await db.batch([
       db
-        .prepare(`UPDATE users SET display_name = ?, role = ?, salesman_id = ?, active = ?, updated_at = datetime('now') WHERE id = ? RETURNING ${USER_COLS}`)
-        .bind(name, role(b.role), Number(b.salesman_id) || null, active ? 1 : 0, id),
+        .prepare(
+          `UPDATE users SET display_name = ?, email = ?, phone = ?, email_template = ?, role = ?, active = ?, updated_at = datetime('now')
+           WHERE id = ? RETURNING ${USER_COLS}`,
+        )
+        .bind(name, ...contact(b), role(b.role), active ? 1 : 0, id),
       // a deactivated user is signed out everywhere
       db.prepare("DELETE FROM sessions WHERE user_id = ? AND ? = 0").bind(id, active ? 1 : 0),
     ]);

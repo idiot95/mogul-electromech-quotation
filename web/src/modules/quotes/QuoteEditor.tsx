@@ -24,15 +24,8 @@ import { DateInput } from "@mantine/dates";
 import { modals } from "@mantine/modals";
 import { IconAlertTriangle, IconBan, IconDots, IconFileSpreadsheet, IconCopy, IconDeviceFloppy, IconGitBranch, IconLock, IconMail, IconPrinter, IconRefresh, IconTrash, IconUser } from "@tabler/icons-react";
 
-const LAST_SALESMAN = "mogul.lastSalesman";
-
-function emptyHeader(): QuoteHeader {
-  let sm: number | null = null;
-  try {
-    sm = Number(localStorage.getItem(LAST_SALESMAN)) || null;
-  } catch {
-    /* storage unavailable */
-  }
+/** A new quotation; the signed-in user is its Sales Rep unless they pick someone else. */
+function emptyHeader(salesRepId: number): QuoteHeader {
   return {
     quote_date: todayUAE(),
     customer_id: null,
@@ -40,7 +33,7 @@ function emptyHeader(): QuoteHeader {
     customer_address: null,
     attention: null,
     enquiry_ref: null,
-    salesman_id: sm,
+    sales_rep_id: salesRepId,
     payment_terms: null,
     validity: null,
     delivery_terms: null,
@@ -60,13 +53,12 @@ let customersCache: Customer[] = [];
 export function QuoteEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { settings, salesmen, toast, user } = useApp();
+  const { settings, reps, toast, user } = useApp();
   const cfg = settings?.quotes;
   const defaultUnit = cfg?.defaultUnit || "Nos.";
 
   const [quote, setQuote] = useState<Quote | null>(null);
-  // a new quotation starts with the signed-in user's own Sales Rep, if their account is linked to one
-  const [h, setH] = useState<QuoteHeader>(() => ({ ...emptyHeader(), salesman_id: user.salesmanId ?? emptyHeader().salesman_id }));
+  const [h, setH] = useState<QuoteHeader>(() => emptyHeader(user.id));
   const [lines, setLines] = useState<EditLine[]>([blankLine(defaultUnit)]);
   const [customers, setCustomers] = useState<Customer[]>(customersCache);
   const [dirty, setDirty] = useState(false);
@@ -95,7 +87,7 @@ export function QuoteEditor() {
   useEffect(() => {
     if (!id) {
       setQuote(null);
-      setH({ ...emptyHeader(), salesman_id: user.salesmanId ?? emptyHeader().salesman_id, vat_rate: cfg?.vatRate ?? 5 });
+      setH({ ...emptyHeader(user.id), vat_rate: cfg?.vatRate ?? 5 });
       setLines([blankLine(defaultUnit)]);
       setHistory([]);
       setDirty(false);
@@ -122,8 +114,8 @@ export function QuoteEditor() {
 
   function applyQuote(q: Quote) {
     setQuote(q);
-    const { quote_date, customer_id, customer_name, customer_address, attention, enquiry_ref, salesman_id, payment_terms, validity, delivery_terms, vat_terms, vat_rate, notes, internal_notes } = q;
-    setH({ quote_date, customer_id, customer_name, customer_address, attention, enquiry_ref, salesman_id, payment_terms, validity, delivery_terms, vat_terms, vat_rate, notes, internal_notes });
+    const { quote_date, customer_id, customer_name, customer_address, attention, enquiry_ref, sales_rep_id, payment_terms, validity, delivery_terms, vat_terms, vat_rate, notes, internal_notes } = q;
+    setH({ quote_date, customer_id, customer_name, customer_address, attention, enquiry_ref, sales_rep_id, payment_terms, validity, delivery_terms, vat_terms, vat_rate, notes, internal_notes });
     const ls = fromLines(q.lines);
     setLines(q.superseded_by ? ls : [...ls, blankLine(defaultUnit)]);
     setHistory([]);
@@ -234,11 +226,6 @@ export function QuoteEditor() {
     try {
       const payload = { ...h, lines: toLines(lines) };
       const saved = quote ? await api.put<Quote>(`/quotes/${quote.id}`, payload) : await api.post<Quote>("/quotes", payload);
-      try {
-        if (h.salesman_id) localStorage.setItem(LAST_SALESMAN, String(h.salesman_id));
-      } catch {
-        /* ignore */
-      }
       setDirty(false);
       dirtyRef.current = false;
       if (!quote) {
@@ -387,7 +374,7 @@ export function QuoteEditor() {
       ["Date", dateFmt(h.quote_date)],
       ["Customer", h.customer_name],
       ["Enquiry Reference", h.enquiry_ref || ""],
-      ["Sales Rep", salesmen.find((s) => s.id === h.salesman_id)?.name || ""],
+      ["Sales Rep", reps.find((r) => r.id === h.sales_rep_id)?.display_name || ""],
       [],
       ["Sr", "Description", "Qty", "Unit", `Rate (${cur})`, `Amount (${cur})`],
     ];
@@ -482,10 +469,10 @@ export function QuoteEditor() {
                   <Select
                     label="Sales Rep"
                     leftSection={<IconUser size={16} />}
-                    value={h.salesman_id ? String(h.salesman_id) : null}
+                    value={h.sales_rep_id ? String(h.sales_rep_id) : null}
                     readOnly={readOnly}
-                    onChange={(v) => setField("salesman_id", v ? Number(v) : null)}
-                    data={salesmen.filter((s) => s.active || s.id === h.salesman_id).map((s) => ({ value: String(s.id), label: s.name }))}
+                    onChange={(v) => setField("sales_rep_id", v ? Number(v) : null)}
+                    data={reps.filter((r) => r.active || r.id === h.sales_rep_id).map((r) => ({ value: String(r.id), label: r.display_name }))}
                   />
                   <DateInput label="Quotation Date" valueFormat="DD MMM YYYY" value={h.quote_date} readOnly={readOnly} onChange={(v) => v && setField("quote_date", String(v).slice(0, 10))} />
                 </SimpleGrid>
