@@ -42,7 +42,7 @@
       "vars": { "APP_ENV": "production" },
       "routes": [{ "pattern": "quotes.mogulelectromech.com", "custom_domain": true }],
       "d1_databases": [
-        { "binding": "DB", "database_name": "mogul-workspace-production", "database_id": "REPLACE_PRODUCTION_D1_ID", "migrations_dir": "migrations" }
+        { "binding": "DB", "database_name": "mogul-workspace-production", "database_id": "6374a631-0cb5-4496-8a1f-43ace9abf3ba", "migrations_dir": "migrations" }
       ],
       "r2_buckets": [{ "binding": "FILES", "bucket_name": "mogul-workspace-production" }]
     }
