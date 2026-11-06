@@ -72,14 +72,14 @@ Helpers: `go(route)`, `click(sel)`, `moveTo(sel)`, `type(text)`, `press(key)`,
 
 ## Branding, legal notice and version control
 
-Every video opens with a notice frame: the HCC logo (`brand/hcc-logo.png`), a red
-**CONFIDENTIAL — FOR HATIM CARBON EMPLOYEES ONLY** banner, a version block and the
+Every video opens with a notice frame in the house "paper" style (`cards.js`): the HCC logo, a
+**CONFIDENTIAL · For Hatim Carbon employees only** label, a version block and the
 legal notice (confidentiality and no-distribution, test-system and blurred-data note,
 computer-generated narration, copyright, ERPNext/Frappe trademarks). Title and end
 cards carry the logo and a footer line; ERP footage carries a corner watermark.
 
-Have your legal or compliance team approve the notice wording in `noticeHTML()` in
-`engine.js` before the first release.
+Have your legal or compliance team approve the notice wording in `LEGAL` in
+`cards.js` before the first release.
 
 | Field | Source |
 | --- | --- |

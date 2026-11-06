@@ -9,6 +9,7 @@ const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const cards = require('./cards'); // opening notice, title and end cards (CARD_THEME=paper|green|split)
 
 const ROOT = __dirname;
 const BASE = process.env.ERP_URL || 'https://erpstaging.hatimcarbon.com';
@@ -196,9 +197,7 @@ function makeHelpers(page) {
 
 // ---------- branding, legal notice, version ----------
 const COMPANY = 'Hatim Carbon Co. Pvt. Ltd.';
-const LOGO = 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'brand', 'hcc-logo.png')).toString('base64');
 const FONT = '/usr/share/fonts/opentype/inter/Inter-SemiBold.otf';
-const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Version metadata shown on the opening and closing cards, in the file name, MP4 tags and releases.json.
 function versionMeta(spec, scriptPath) {
@@ -218,48 +217,6 @@ function versionMeta(spec, scriptPath) {
   } catch (e) { /* not a git checkout */ }
   const site = /staging/.test(BASE) ? 'staging' : new URL(BASE).host;
   return { code: spec.code, title: spec.title, version: String(spec.version || '1.0'), release, date, iso: now.toISOString(), erp, apps, build, site, year: now.getFullYear() };
-}
-const footerLine = m => `Confidential · For Hatim Carbon employees only · © ${m.year} ${COMPANY} · ${m.code} v${m.version} · ${m.release ? 'Released ' + m.date : 'DRAFT ' + m.date}`;
-
-// Opening frame: logo, confidentiality banner, version block, legal notice.
-function noticeHTML(m) {
-  return `<!doctype html><html><head><style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#fff;font-family:Inter,'DejaVu Sans',sans-serif;color:#1d2433}
-  .w{height:100%;box-sizing:border-box;padding:48px 150px 0;display:flex;flex-direction:column;align-items:center;text-align:center}
-  img{height:230px}
-  .c{margin-top:30px;background:#b42318;color:#fff;font-weight:700;font-size:40px;letter-spacing:3px;padding:16px 44px;border-radius:10px}
-  .t{margin-top:30px;font-size:44px;font-weight:700}
-  .v{margin-top:26px;display:flex;gap:0;font-size:24px;color:#344054;border:2px solid #d0d5dd;border-radius:12px;overflow:hidden}
-  .v div{padding:14px 26px;border-right:2px solid #d0d5dd}.v div:last-child{border-right:0}.v b{display:block;font-size:16px;color:#667085;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
-  .l{margin-top:30px;max-width:1500px;font-size:21px;line-height:1.55;color:#475467}
-  .l p{margin:0 0 10px}
-  #__cur{display:none!important}
-  .d{position:absolute;top:60px;right:-90px;transform:rotate(35deg);background:#f79009;color:#fff;font-weight:800;font-size:34px;letter-spacing:4px;padding:10px 120px}
-  </style></head><body>${m.release ? '' : '<div class="d">DRAFT</div>'}<div class="w">
-  <img src="${LOGO}">
-  <div class="c">CONFIDENTIAL — FOR HATIM CARBON EMPLOYEES ONLY</div>
-  <div class="t">${esc(m.code)} · ${esc(m.title)}</div>
-  <div class="v"><div><b>Version</b>${esc(m.version)}</div><div><b>${m.release ? 'Released' : 'Draft of'}</b>${esc(m.date)}</div><div><b>Recorded on</b>ERPNext ${esc(m.erp)} (${esc(m.site)})</div><div><b>Build</b>${esc(m.build)}</div></div>
-  <div class="l">
-  <p>This video contains confidential and proprietary information of ${COMPANY} It is for the internal training of authorised employees only. Do not copy, record, share, upload or distribute it, in whole or in part, outside the company without written permission.</p>
-  <p>Screens were recorded on a test system. Customer, supplier, price and personal data are blurred or are demonstration data. Procedures may change after the release date: always use the latest version on the company Wiki. The narration is computer-generated.</p>
-  <p>© ${m.year} ${COMPANY} All rights reserved. ERPNext and Frappe are trademarks of Frappe Technologies Pvt. Ltd. Other names belong to their respective owners.</p>
-  </div></div></body></html>`;
-}
-
-// Title and end cards: dark, with the logo and the legal footer line.
-function cardHTML({ kicker, title, sub }, m) {
-  return `<!doctype html><html><head><style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#0f1b2d;font-family:Inter,'DejaVu Sans',sans-serif;color:#fff}
-  .w{height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 160px}
-  .logo{position:absolute;top:50px;left:160px;background:#fff;border-radius:12px;padding:10px 16px}.logo img{height:120px;display:block}
-  .k{display:inline-block;align-self:flex-start;background:#f5a623;color:#0f1b2d;font-weight:700;font-size:30px;padding:8px 18px;border-radius:8px;letter-spacing:.5px}
-  h1{font-size:76px;line-height:1.1;margin:36px 0 22px;font-weight:700;max-width:1500px}
-  p{font-size:32px;color:#9fb0c8;margin:0}
-  #__cur{display:none!important}
-  .f{position:absolute;bottom:150px;left:160px;right:160px;font-size:21px;color:#8193ad;letter-spacing:.5px}
-  </style></head><body><div class="logo"><img src="${LOGO}"></div><div class="w"><span class="k">${esc(kicker)}</span><h1>${esc(title)}</h1><p>${esc(sub || '')}</p></div>
-  <div class="f">${esc(footerLine(m))}</div></body></html>`;
 }
 
 // releases.json: one entry per released version; a released version can never be overwritten.
@@ -364,8 +321,8 @@ async function main() {
     timeline.push({ start: (t0 - tSync) / 1000, sc });
     const at = async sec => { const w = t0 + sec * 1000 - Date.now(); if (w > 0) await sleep(w); };
     try {
-      if (sc.notice) await page.setContent(noticeHTML(meta));
-      if (sc.card) await page.setContent(cardHTML(sc.card, meta));
+      if (sc.notice) await page.setContent(cards.noticeHTML(meta));
+      if (sc.card) await page.setContent(cards.cardHTML(sc.card, meta));
       if (sc.run) await sc.run(h, at);
     } catch (e) {
       console.error(`scene ${i} failed:`, e.message);
@@ -429,4 +386,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(e => { console.error(e); process.exit(1); });
-module.exports = { noticeHTML, cardHTML, versionMeta, footerLine };
+module.exports = { versionMeta };

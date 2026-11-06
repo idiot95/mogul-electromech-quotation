@@ -105,7 +105,7 @@ module.exports = {
       },
     },
     {
-      card: { kicker: 'Next · F2', title: 'Search bar, list views, filters and saved views', sub: 'You have finished F1. Find all videos on the Wiki.' },
+      card: { code: 'F2', kicker: 'Next · F2', title: 'Search bar, list views, filters and saved views', sub: 'You have finished F1. Find all videos on the Wiki.' },
       say: 'That is it. You can now find your desk, jump to any screen with search, and ask for help. Next, video F2 shows how to work with lists, filters and saved views.',
     },
   ],
