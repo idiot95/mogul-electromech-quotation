@@ -166,6 +166,9 @@ function makeHelpers(page) {
           const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
           // Only real loading indicators: skeleton/shimmer blocks, the boot splash, the freeze overlay.
           if ([...document.querySelectorAll('[class*=skeleton],[class*=shimmer],.splash,#freeze')].some(vis)) return true;
+          // List views: wait for the rows (or the "no results" message), which load after the page frame.
+          const fl = document.querySelector('.frappe-list');
+          if (fl && vis(fl) && ![...fl.querySelectorAll('.list-row-container, .no-result')].some(vis)) return true;
           return [...document.querySelectorAll('body *')].some(e => e.children.length === 0 && /^Loading\.*$/.test(e.textContent.trim()) && vis(e));
         }).catch(() => true);
         if (!busy) break;
@@ -189,7 +192,10 @@ function makeHelpers(page) {
     },
     // Run an action that changes the screen (route change, Enter in search, a click that opens
     // a page) under a still of the current screen, then reveal the loaded result.
-    async transition(action) {
+    // expectNav (default true): the action changes the page address; wait for that before checking
+    // readiness, otherwise the still would be lifted before the next page has even started loading.
+    async transition(action, { expectNav = true } = {}) {
+      const before = page.url();
       const shot = (await page.screenshot({ type: 'jpeg', quality: 92 })).toString('base64');
       await page.evaluate(src => {
         const d = document.createElement('div'); d.id = '__still';
@@ -197,6 +203,8 @@ function makeHelpers(page) {
         document.documentElement.appendChild(d);
       }, shot);
       await action();
+      if (expectNav) await page.waitForFunction(b => location.href !== b, before, { timeout: 6000 })
+        .catch(() => console.warn(`  ! transition: address did not change from ${before}`));
       await h.ready();
       await page.evaluate(() => { const d = document.getElementById('__still'); if (d) { d.style.opacity = '0'; setTimeout(() => d.remove(), 350); } }).catch(() => {});
       await sleep(350);
