@@ -148,5 +148,30 @@
     "build": "66b8d22",
     "file": "F5 v1.0 - Assignments, ToDos, comments and @mentions.mp4",
     "sha256": "1f8170a043cc6a0fb1fff9826b281a15f59026ef8e48bde1e1cee57a5777835e"
+  },
+  {
+    "code": "F6",
+    "title": "Print, download a PDF and email a document",
+    "version": "1.0",
+    "released": "2026-11-06T16:44:11.842Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "730dfdf",
+    "file": "F6 v1.0 - Print, download a PDF and email a document.mp4",
+    "sha256": "5ba7394061ef0cbbbc913e44d6b7a3d97737f9257d6d9943befd57a27799314d"
   }
 ]
