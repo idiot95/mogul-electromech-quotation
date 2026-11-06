@@ -73,5 +73,30 @@
     "build": "779ddd8",
     "file": "F3 v1.0 - Create, save, submit, cancel and amend a document.mp4",
     "sha256": "cf3cafeafcdbe689cce604bc4bd923d806e8b2d65cb1630eee7c8cbbde7ebe65"
+  },
+  {
+    "code": "F9",
+    "title": "The document chain: keep everything linked",
+    "version": "1.0",
+    "released": "2026-11-06T13:31:52.093Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "4f3b365",
+    "file": "F9 v1.0 - The document chain: keep everything linked.mp4",
+    "sha256": "169212b289ed3216f95975d5242dc7e05fad53b70984ec6e17fdaddebe3b9986"
   }
 ]
