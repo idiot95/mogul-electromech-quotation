@@ -57,21 +57,23 @@ module.exports = {
       },
     },
     {
-      say: 'The new sales order is already filled in from the quotation: the customer, the item, the quantity and the price. Enter the date the customer needs the goods.',
+      say: 'The new sales order is already filled in from the quotation: the customer, the item, the quantity and the price. First, enter the Customer Due Date: the date printed on the customer\'s order. Here, they have asked for tomorrow.',
       async run(h, at) {
         await h.scroll(380);
         const row = h.page.locator('.frappe-control[data-fieldname=items] .grid-body .grid-row:visible').first();
         await at(1.0); await h.highlight(row, 3800, 4);
-        await at(6.6);
-        const cell = row.locator('[data-fieldname=delivery_date]').first();
-        await h.click(cell, { after: 300 });
-        await h.page.waitForFunction(() => document.activeElement?.getAttribute('data-fieldname') === 'delivery_date', null, { timeout: 5000 }).catch(() => {});
-        await h.press('Control+a'); await h.type(dueDate(), 90); await h.press('Tab');
-        // Close the date picker: it stays open after typing a date into a table cell.
-        await h.press('Escape');
-        await h.page.evaluate(() => { document.activeElement?.blur(); document.querySelectorAll('.datepicker.active').forEach(d => d.classList.remove('active')); });
-        await h.sleep(500);
-        await h.page.evaluate(async d => { const r = cur_frm.doc.items[0]; if (!r.delivery_date) await frappe.model.set_value(r.doctype, r.name, 'delivery_date', frappe.datetime.user_to_str(d)); }, dueDate());
+        await at(8.4); await setDate(h, 'delivery_date', 1);
+      },
+    },
+    {
+      say: 'Next to it is the H C C Due Date. This is the date we can really fulfil the order. The customer may ask for tomorrow, but if we can only make it by next week, enter next week here. Planning and dispatch work to this date, so always fill it in.',
+      async run(h, at) {
+        const row = h.page.locator('.frappe-control[data-fieldname=items] .grid-body .grid-row:visible').first();
+        const head = h.page.locator('.frappe-control[data-fieldname=items] .grid-heading-row [data-fieldname=custom_hcc_delivery_date]:visible').first();
+        await at(0.6); await h.highlight(head, 3000, 6);
+        await at(9.0); await setDate(h, 'custom_hcc_delivery_date', 8);
+        await h.highlight(row.locator('[data-fieldname=custom_hcc_delivery_date]').first(), 3200, 6);
+        await h.tip('Always fill in the HCC Due Date: the date we can really fulfil the order.', 7000);
       },
     },
     {
@@ -130,7 +132,19 @@ module.exports = {
   ],
 };
 
-const dueDate = () => { const d = new Date(Date.now() + 30 * 864e5); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; };
+const inDays = n => { const d = new Date(Date.now() + n * 864e5); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; };
+// Type a date into a date cell of the first item row, close the date picker, and make sure it stuck.
+async function setDate(h, field, days) {
+  const row = h.page.locator('.frappe-control[data-fieldname=items] .grid-body .grid-row:visible').first();
+  await h.click(row.locator(`[data-fieldname=${field}]`).first(), { after: 300 });
+  await h.page.waitForFunction(f => document.activeElement?.getAttribute('data-fieldname') === f, field, { timeout: 5000 }).catch(() => {});
+  await h.press('Control+a'); await h.type(inDays(days), 90); await h.press('Tab');
+  // The date picker stays open after typing into a table cell: close it.
+  await h.press('Escape');
+  await h.page.evaluate(() => { document.activeElement?.blur(); document.querySelectorAll('.datepicker.active').forEach(d => d.classList.remove('active')); });
+  await h.sleep(500);
+  await h.page.evaluate(async ([f, d]) => { const r = cur_frm.doc.items[0]; if (!r[f]) await frappe.model.set_value(r.doctype, r.name, f, frappe.datetime.user_to_str(d)); }, [field, inDays(days)]);
+}
 // Cancel and delete every Sales Order, then every Quotation, for the demo customer.
 async function removeDemo(h) {
   await h.page.evaluate(async cust => {
