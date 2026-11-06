@@ -1,6 +1,6 @@
 // ERP training video engine.
 // Drives a real Chromium window on a virtual X display, captures it with ffmpeg,
-// voices each scene (Piper offline, or ElevenLabs / Azure), then mixes narration + burned-in captions.
+// voices each scene (Kokoro af_heart by default), then mixes narration + burned-in captions.
 //
 // Usage: node training-videos/engine.js training-videos/scripts/F1.js
 'use strict';
@@ -26,19 +26,19 @@ const PRIVACY_CSS = [
 ].join(',') + '{filter:blur(6px)!important}';
 
 // ---------- narration ----------
-// TTS_PROVIDER = piper (offline, default) | kokoro (offline, American) | elevenlabs | azure
-//   kokoro:     KOKORO_DIR, KOKORO_VOICE (default am_michael), KOKORO_PYTHON (python with kokoro-onnx)
+// TTS_PROVIDER = kokoro (default: offline, American, voice af_heart) | piper | omnivoice | elevenlabs | azure
+//   kokoro:     KOKORO_DIR, KOKORO_VOICE (default af_heart — the house voice), KOKORO_PYTHON (python with kokoro-onnx)
 //   omnivoice:  OMNIVOICE_PYTHON, OMNIVOICE_SRC, OMNIVOICE_REF, OMNIVOICE_REF_TEXT (see tts_omnivoice.py)
 //   elevenlabs: ELEVEN_VOICE_ID (default: a calm narrator voice), ELEVEN_MODEL (default eleven_multilingual_v2)
 //   azure:      AZURE_TTS_REGION (e.g. centralindia), AZURE_VOICE (default en-IN-NeerjaNeural)
 // API keys are never read here: the cloud session's network proxy adds them to the request.
 // Elsewhere, set ELEVEN_API_KEY / AZURE_TTS_KEY.
-const PROVIDER = process.env.TTS_PROVIDER || 'piper';
+const PROVIDER = process.env.TTS_PROVIDER || 'kokoro';
 function voiceId() {
   if (PROVIDER === 'elevenlabs') return 'el:' + (process.env.ELEVEN_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb') + ':' + (process.env.ELEVEN_MODEL || 'eleven_multilingual_v2');
   if (PROVIDER === 'azure') return 'az:' + (process.env.AZURE_VOICE || 'en-IN-NeerjaNeural');
   if (PROVIDER === 'omnivoice') return 'omnivoice:' + crypto.createHash('sha1').update(fs.readFileSync(process.env.OMNIVOICE_REF)).digest('hex').slice(0, 10);
-  if (PROVIDER === 'kokoro') return 'kokoro:' + (process.env.KOKORO_VOICE || 'am_michael') + ':' + (process.env.KOKORO_SPEED || '1.0');
+  if (PROVIDER === 'kokoro') return 'kokoro:' + (process.env.KOKORO_VOICE || 'af_heart') + ':' + (process.env.KOKORO_SPEED || '1.0');
   return 'piper:' + VOICE;
 }
 function synth(text, out) {

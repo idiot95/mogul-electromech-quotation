@@ -7,8 +7,10 @@ real Chromium window, records the screen, voices the narration and burns in capt
 
 ## How a video is made
 
-1. **Voice** — every scene's `say` text is spoken by [Piper](https://github.com/rhasspy/piper)
-   (offline neural TTS) and cached in `.cache/`. Scene lengths are known before recording.
+1. **Voice** — every scene's `say` text is spoken by **Kokoro, voice `af_heart`** (the house
+   voice: American female, offline, free, Apache-2.0) and cached in `.cache/`. Scene lengths are
+   known before recording. Other providers: `piper`, `omnivoice`, `elevenlabs`, `azure`
+   (`TTS_PROVIDER`, see the top of `engine.js`).
 2. **Record** — Chromium runs fullscreen at 1920×1080 on a virtual display (Xvfb) and
    ffmpeg captures it. A drawn cursor, click ripples and amber highlight boxes are
    injected into the page. Each scene waits until its narration has finished.
@@ -19,14 +21,21 @@ Output: `out/<code> - <title>.mp4` plus a matching `.srt`.
 
 ## Run
 
+Once: install Kokoro and download the model and the Heart voice
+(from [onnx-community/Kokoro-82M-v1.0-ONNX](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX)):
+
 ```bash
-pip install piper-tts   # once; then download a voice, e.g. en_US-lessac-medium.onnx (+ .json)
+pip install kokoro-onnx soundfile
 ```
 
 ```bash
-PIPER_BIN=piper PIPER_VOICE=/path/to/en_US-lessac-medium.onnx \
-ERP_URL=https://erpstaging.hatimcarbon.com \
-node training-videos/engine.js training-videos/scripts/F1.js
+mkdir -p kokoro/onnx kokoro/voices && for f in onnx/model.onnx voices/af_heart.bin; do curl -sSL -o kokoro/$f https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/$f; done
+```
+
+Then render a video:
+
+```bash
+KOKORO_DIR=$PWD/kokoro ERP_URL=https://erpstaging.hatimcarbon.com node training-videos/engine.js training-videos/scripts/F1.js
 ```
 
 Needs Node 18+, Playwright with Chromium, ffmpeg (with libass) and Xvfb.
