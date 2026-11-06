@@ -125,6 +125,13 @@ const INIT = `(() => {
     setTimeout(() => r.remove(), 600);
   }, true);
   document.addEventListener('DOMContentLoaded', mk);
+  // Native title tooltips are drawn by the browser and end up in the recording: strip them.
+  const untitle = root => { (root.querySelectorAll ? root : document).querySelectorAll('[title]').forEach(e => { e.setAttribute('data-hcc-title', e.getAttribute('title')); e.removeAttribute('title'); }); if (root.hasAttribute && root.hasAttribute('title')) { root.setAttribute('data-hcc-title', root.getAttribute('title')); root.removeAttribute('title'); } };
+  new MutationObserver(ms => ms.forEach(m => { if (m.type === 'attributes') untitle(m.target); else m.addedNodes.forEach(n => n.nodeType === 1 && untitle(n)); }))
+    .observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['title'] });
+  const st2 = document.createElement('style');
+  st2.textContent = '.tooltip,[role=tooltip]{display:none!important}html.__carding #__cur{display:none!important}';
+  document.addEventListener('DOMContentLoaded', () => document.head.appendChild(st2));
   setInterval(mk, 500);
 })();`;
 
@@ -134,10 +141,63 @@ function makeHelpers(page) {
   const h = {
     page, BASE,
     sleep,
+    // Navigate without showing loading screens: inside the app, the current screen is held
+    // as a still while the next one loads, then cross-faded. A full page load happens only
+    // when the ERP is not open yet (off camera, before recording).
     async go(route) {
-      await page.goto(BASE + route, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await sleep(600);
+      const here = await page.evaluate(() => location.pathname).catch(() => '');
+      if (here.replace(/\/$/, '') === route.replace(/\/$/, '')) return;
+      const spa = await page.evaluate(() => !!(window.frappe && frappe.set_route)).catch(() => false);
+      if (!spa) {
+        await page.goto(BASE + route, { waitUntil: 'domcontentloaded' });
+        await h.ready();
+        return;
+      }
+      await h.transition(() => page.evaluate(r => frappe.set_route(r.replace(/^\/+/, '')), route));
+      const now = await page.evaluate(() => location.pathname);
+      if (now.replace(/\/$/, '') !== route.replace(/\/$/, '')) throw new Error(`navigation to ${route} ended at ${now}`);
+    },
+    // Wait until the page has finished loading: network quiet, no skeletons or "Loading..." text.
+    async ready(max = 12000) {
+      const end = Date.now() + max;
+      await page.waitForLoadState('networkidle', { timeout: max }).catch(() => {});
+      while (Date.now() < end) {
+        const busy = await page.evaluate(() => {
+          const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
+          if ([...document.querySelectorAll('[class*=skeleton],[class*=placeholder],.splash,#freeze')].some(vis)) return true;
+          return [...document.querySelectorAll('body *')].some(e => e.children.length === 0 && /^Loading\.*$/.test(e.textContent.trim()) && vis(e));
+        }).catch(() => true);
+        if (!busy) break;
+        await sleep(150);
+      }
+      await sleep(400);
+    },
+    // Run an action that changes the screen (route change, Enter in search, a click that opens
+    // a page) under a still of the current screen, then reveal the loaded result.
+    async transition(action) {
+      const shot = (await page.screenshot({ type: 'jpeg', quality: 92 })).toString('base64');
+      await page.evaluate(src => {
+        const d = document.createElement('div'); d.id = '__still';
+        Object.assign(d.style, { position: 'fixed', inset: 0, zIndex: 2147483600, background: `url(data:image/jpeg;base64,${src}) 0 0/100% 100%`, transition: 'opacity .3s' });
+        document.documentElement.appendChild(d);
+      }, shot);
+      await action();
+      await h.ready();
+      await page.evaluate(() => { const d = document.getElementById('__still'); if (d) { d.style.opacity = '0'; setTimeout(() => d.remove(), 350); } }).catch(() => {});
+      await sleep(350);
+    },
+    // Full-screen cards (notice, title, end) drawn over the already-loaded ERP.
+    async showCard(html) {
+      await page.evaluate(html => {
+        let f = document.getElementById('__card');
+        if (!f) { f = document.createElement('iframe'); f.id = '__card'; Object.assign(f.style, { position: 'fixed', inset: 0, width: '100vw', height: '100vh', border: 0, zIndex: 2147483645, background: '#000' }); document.documentElement.appendChild(f); }
+        f.srcdoc = html; document.documentElement.classList.add('__carding');
+      }, html);
+      await page.waitForFunction(() => { const f = document.getElementById('__card'); return f && f.contentDocument && f.contentDocument.readyState === 'complete' && f.contentDocument.body && f.contentDocument.body.children.length; }, null, { timeout: 5000 }).catch(() => {});
+      await sleep(150);
+    },
+    async hideCard() {
+      await page.evaluate(() => { const f = document.getElementById('__card'); if (f) f.remove(); document.documentElement.classList.remove('__carding'); });
     },
     loc(sel) { return typeof sel === 'string' ? page.locator(sel).first() : sel; },
     async moveTo(sel, opt = {}) {
@@ -300,10 +360,12 @@ async function main() {
   await cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'fullscreen' } });
   await sleep(800);
   const h = makeHelpers(page);
-  await page.setContent('<html><body style="margin:0;background:#000"></body></html>');
   if (spec.warmup) await spec.warmup(h); // load caches off-camera
-  // Black pre-roll: the cut to the white notice card is the sync mark found in step 5.
-  await page.setContent('<html><body style="margin:0;background:#000"></body></html>');
+  // Open the ERP where the first live scene starts, off camera, so no loading screen is ever filmed.
+  await page.goto(BASE + (spec.start || '/desk'), { waitUntil: 'domcontentloaded' });
+  await h.ready();
+  // Black pre-roll over it: the cut to the white notice card is the sync mark found in step 5.
+  await h.showCard('<html><body style="margin:0;background:#000"></body></html>');
   await sleep(800);
 
   // 3) start capture
@@ -321,8 +383,9 @@ async function main() {
     timeline.push({ start: (t0 - tSync) / 1000, sc });
     const at = async sec => { const w = t0 + sec * 1000 - Date.now(); if (w > 0) await sleep(w); };
     try {
-      if (sc.notice) await page.setContent(cards.noticeHTML(meta));
-      if (sc.card) await page.setContent(cards.cardHTML(sc.card, meta));
+      if (sc.notice) await h.showCard(cards.noticeHTML(meta));
+      else if (sc.card) await h.showCard(cards.cardHTML(sc.card, meta));
+      else await h.hideCard();
       if (sc.run) await sc.run(h, at);
     } catch (e) {
       console.error(`scene ${i} failed:`, e.message);

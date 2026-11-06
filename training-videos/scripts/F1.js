@@ -70,9 +70,8 @@ module.exports = {
         await h.moveTo(h.page.locator('.item-anchor:visible', { hasText: 'Search' }).first());
         await h.highlight(h.page.locator('.item-anchor:visible', { hasText: 'Search' }).first(), 1800, 6);
         await at(3.5); await h.press('Control+k');
-        await at(5.6); await h.type('sales order', 110);
-        await at(8.6); await h.press('Enter');
-        await h.page.waitForLoadState('networkidle').catch(() => {});
+        await at(5.6); await h.press('Control+a'); await h.type('sales order', 110);
+        await at(8.6); await pick(h, /Sales Order\s*List/);
       },
     },
     {
@@ -87,10 +86,9 @@ module.exports = {
       say: 'To get back to your desk at any time, use search again. Press Control and K, type the name of your desk, and press Enter.',
       async run(h, at) {
         await at(3.2); await h.press('Control+k');
-        await at(5.0); await h.type('sales desk', 110);
-        await at(7.4); await h.press('Enter');
-        await h.page.waitForLoadState('networkidle').catch(() => {});
-        if (!/sales-desk/.test(h.page.url())) await h.go('/desk/sales-desk');
+        await at(5.0); await h.press('Control+a'); await h.type('sales desk', 110);
+        await at(7.4); await pick(h, /Sales Desk\s*Workspace/);
+        if (!/sales-desk/.test(h.page.url())) throw new Error('search did not open the Sales Desk: ' + h.page.url());
         await h.sleep(600); await privacy(h);
       },
     },
@@ -110,6 +108,17 @@ module.exports = {
     },
   ],
 };
+
+// In the Ctrl+K search results, move the highlight to the result matching `re`, then press Enter.
+// The page change happens under a still of the current screen, so no loading screen is filmed.
+async function pick(h, re) {
+  for (let i = 0; i < 8; i++) {
+    const cur = await h.page.evaluate(() => { const e = document.querySelector('[aria-selected="true"]'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; });
+    if (re.test(cur)) break;
+    await h.press('ArrowDown'); await h.sleep(260);
+  }
+  await h.transition(() => h.press('Enter'));
+}
 
 // Hide customer names and task text on the desk's My Work panel.
 async function privacy(h) {
