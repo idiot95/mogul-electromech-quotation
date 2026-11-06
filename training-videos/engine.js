@@ -1,0 +1,265 @@
+// ERP training video engine.
+// Drives a real Chromium window on a virtual X display, captures it with ffmpeg,
+// voices each scene with Piper TTS, then mixes narration + burned-in captions.
+//
+// Usage: node training-videos/engine.js training-videos/scripts/F1.js
+'use strict';
+const { chromium } = require('playwright');
+const { spawn, execFileSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+const ROOT = __dirname;
+const BASE = process.env.ERP_URL || 'https://erpstaging.hatimcarbon.com';
+const PIPER = process.env.PIPER_BIN || 'piper';
+const VOICE = process.env.PIPER_VOICE; // path to .onnx
+const W = 1920, H = 1080, FPS = 30, DISPLAY = process.env.REC_DISPLAY || ':99';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ---------- narration ----------
+function tts(text, cacheDir) {
+  const key = crypto.createHash('sha1').update(VOICE + '|' + text).digest('hex').slice(0, 16);
+  const out = path.join(cacheDir, key + '.wav');
+  if (!fs.existsSync(out)) {
+    execFileSync(PIPER, ['-m', VOICE, '-f', out, '--length_scale', '1.05', '--sentence_silence', '0.35'],
+      { input: text, stdio: ['pipe', 'ignore', 'ignore'] });
+  }
+  const dur = parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]).toString());
+  return { file: out, dur };
+}
+
+// ---------- in-page overlays (cursor, click ripple, highlight, privacy blur) ----------
+const INIT = `(() => {
+  // Suppress the once-per-login "Your work today" pop-up (hcc_erp_edits).
+  const g = Storage.prototype.getItem;
+  Storage.prototype.getItem = function (k) {
+    if (k === 'hcc_my_work_seen') { try { return window.frappe.boot.hcc_login_key; } catch (e) {} }
+    return g.call(this, k);
+  };
+  if (window.top !== window) return;
+  const svg = '<svg width="30" height="30" viewBox="0 0 24 24"><path d="M5 2.5l13.5 9.2-6.3 1.3 3.6 7.2-2.9 1.4-3.6-7.3L5 18.6z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  const mk = () => {
+    if (document.getElementById('__cur') || !document.documentElement) return;
+    const c = document.createElement('div'); c.id = '__cur'; c.innerHTML = svg;
+    Object.assign(c.style, { position: 'fixed', left: 0, top: 0, zIndex: 2147483647, pointerEvents: 'none', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.35))' });
+    const p = JSON.parse(sessionStorage.getItem('__curpos') || '[960,540]');
+    c.style.transform = 'translate(' + (p[0] - 5) + 'px,' + (p[1] - 3) + 'px)';
+    document.documentElement.appendChild(c);
+    const st = document.createElement('style');
+    st.textContent = '.__blur{filter:blur(7px)!important}.__hl{position:fixed;z-index:2147483640;pointer-events:none;border:3px solid #f5a623;border-radius:10px;box-shadow:0 0 0 6px rgba(245,166,35,.22);transition:opacity .3s}';
+    document.documentElement.appendChild(st);
+  };
+  document.addEventListener('mousemove', e => {
+    mk(); const c = document.getElementById('__cur');
+    if (c) c.style.transform = 'translate(' + (e.clientX - 5) + 'px,' + (e.clientY - 3) + 'px)';
+    sessionStorage.setItem('__curpos', JSON.stringify([e.clientX, e.clientY]));
+  }, true);
+  document.addEventListener('mousedown', e => {
+    const r = document.createElement('div');
+    Object.assign(r.style, { position: 'fixed', left: (e.clientX - 22) + 'px', top: (e.clientY - 22) + 'px', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(245,166,35,.5)', zIndex: 2147483646, pointerEvents: 'none', transition: 'transform .5s ease-out, opacity .5s ease-out' });
+    document.documentElement.appendChild(r);
+    requestAnimationFrame(() => { r.style.transform = 'scale(1.9)'; r.style.opacity = '0'; });
+    setTimeout(() => r.remove(), 600);
+  }, true);
+  document.addEventListener('DOMContentLoaded', mk);
+  setInterval(mk, 500);
+})();`;
+
+// ---------- helpers handed to each scene ----------
+function makeHelpers(page) {
+  let cur = { x: 960, y: 540 };
+  const h = {
+    page, BASE,
+    sleep,
+    async go(route) {
+      await page.goto(BASE + route, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => {});
+      await sleep(600);
+    },
+    loc(sel) { return typeof sel === 'string' ? page.locator(sel).first() : sel; },
+    async moveTo(sel, opt = {}) {
+      const l = h.loc(sel);
+      await l.scrollIntoViewIfNeeded().catch(() => {});
+      const b = await l.boundingBox();
+      if (!b) throw new Error('not visible: ' + sel);
+      const tx = b.x + b.width * (opt.fx ?? 0.5), ty = b.y + b.height * (opt.fy ?? 0.5);
+      const n = Math.max(12, Math.round(Math.hypot(tx - cur.x, ty - cur.y) / 25));
+      for (let i = 1; i <= n; i++) {
+        const t = i / n, e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        await page.mouse.move(cur.x + (tx - cur.x) * e, cur.y + (ty - cur.y) * e);
+        await sleep(14);
+      }
+      cur = { x: tx, y: ty };
+      return b;
+    },
+    async click(sel, opt = {}) {
+      await h.moveTo(sel, opt); await sleep(250);
+      await page.mouse.down(); await sleep(60); await page.mouse.up();
+      await sleep(opt.after ?? 700);
+    },
+    async type(text, delay = 75) { await page.keyboard.type(text, { delay }); },
+    async press(key) { await page.keyboard.press(key); },
+    // Draws an amber box around an element for `ms` milliseconds.
+    async highlight(sel, ms = 2500, pad = 6) {
+      const l = h.loc(sel);
+      await l.scrollIntoViewIfNeeded().catch(() => {});
+      const b = await l.boundingBox(); if (!b) return;
+      await page.evaluate(({ b, ms, pad }) => {
+        const d = document.createElement('div'); d.className = '__hl';
+        Object.assign(d.style, { left: (b.x - pad) + 'px', top: (b.y - pad) + 'px', width: (b.width + 2 * pad) + 'px', height: (b.height + 2 * pad) + 'px' });
+        document.documentElement.appendChild(d);
+        setTimeout(() => { d.style.opacity = '0'; setTimeout(() => d.remove(), 350); }, ms);
+      }, { b, ms, pad });
+    },
+    // Blur elements (privacy) — CSS selector, or text contained in the element.
+    async blur(css) { await page.evaluate(css => document.querySelectorAll(css).forEach(e => e.classList.add('__blur')), css); },
+    async blurText(re, closest = '*') {
+      await page.evaluate(({ src, closest }) => {
+        const rx = new RegExp(src, 'i');
+        const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        while (w.nextNode()) if (rx.test(w.currentNode.textContent)) {
+          const el = w.currentNode.parentElement.closest(closest) || w.currentNode.parentElement; el.classList.add('__blur');
+        }
+      }, { src: re.source || re, closest });
+    },
+    async scroll(dy, steps = 20) { for (let i = 0; i < steps; i++) { await page.mouse.wheel(0, dy / steps); await sleep(25); } await sleep(300); },
+  };
+  return h;
+}
+
+// ---------- title / end cards ----------
+function cardHTML({ kicker, title, sub }) {
+  return `<!doctype html><html><head><style>
+  html,body{margin:0;height:100%;background:#0f1b2d;font-family:Inter,'DejaVu Sans',sans-serif;color:#fff}
+  .w{height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 160px}
+  .k{display:inline-block;align-self:flex-start;background:#f5a623;color:#0f1b2d;font-weight:700;font-size:30px;padding:8px 18px;border-radius:8px;letter-spacing:.5px}
+  h1{font-size:76px;line-height:1.1;margin:36px 0 22px;font-weight:700;max-width:1500px}
+  p{font-size:32px;color:#9fb0c8;margin:0}
+  .f{position:absolute;bottom:60px;left:160px;font-size:24px;color:#6f84a3;letter-spacing:2px;text-transform:uppercase}
+  </style></head><body><div class="w"><span class="k">${kicker}</span><h1>${title}</h1><p>${sub || ''}</p></div>
+  <div class="f">Hatim Carbon ERP · Training</div></body></html>`;
+}
+
+// ---------- captions ----------
+function srtTime(s) {
+  const ms = Math.max(0, Math.round(s * 1000)); const hh = String(Math.floor(ms / 3600000)).padStart(2, '0');
+  const mm = String(Math.floor(ms / 60000) % 60).padStart(2, '0'); const ss = String(Math.floor(ms / 1000) % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss},${String(ms % 1000).padStart(3, '0')}`;
+}
+function captionChunks(text) {
+  // Split into sentences, then into chunks of <= ~80 chars on word boundaries.
+  const out = [];
+  for (const s of text.match(/[^.!?]+[.!?]*/g) || [text]) {
+    let line = '';
+    for (const w of s.trim().split(/\s+/)) {
+      if ((line + ' ' + w).trim().length > 80) { out.push(line.trim()); line = w; } else line += ' ' + w;
+    }
+    if (line.trim()) out.push(line.trim());
+  }
+  return out;
+}
+
+// ---------- main ----------
+async function main() {
+  const scriptPath = path.resolve(process.argv[2]);
+  const spec = require(scriptPath);
+  if (!VOICE) throw new Error('Set PIPER_VOICE to a Piper .onnx voice file');
+  const cache = path.join(ROOT, '.cache'); fs.mkdirSync(cache, { recursive: true });
+  const work = path.join(ROOT, 'out', spec.code); fs.mkdirSync(work, { recursive: true });
+
+  // 1) voice every scene up front, so timings are known before recording
+  for (const sc of spec.scenes) Object.assign(sc, { audio: tts(sc.say, cache) });
+  console.log(`[${spec.code}] narration: ${spec.scenes.reduce((a, s) => a + s.audio.dur, 0).toFixed(1)} s over ${spec.scenes.length} scenes`);
+
+  // 2) virtual display + browser
+  const xvfb = spawn('Xvfb', [DISPLAY, '-screen', '0', `${W}x${H}x24`, '-nolisten', 'tcp'], { stdio: 'ignore' });
+  await sleep(1200);
+  const browser = await chromium.launch({
+    headless: false, env: { ...process.env, DISPLAY },
+    ignoreDefaultArgs: ['--enable-automation'],
+    args: ['--kiosk', `--window-size=${W},${H}`, '--window-position=0,0', '--force-device-scale-factor=1', '--disable-infobars', '--no-first-run', '--hide-crash-restore-bubble'],
+  });
+  const context = await browser.newContext({ viewport: null });
+  await context.addInitScript(INIT);
+  const page = await context.newPage();
+  // True fullscreen: no tabs, no address bar.
+  const cdp = await context.newCDPSession(page);
+  const { windowId } = await cdp.send('Browser.getWindowForTarget');
+  await cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'fullscreen' } });
+  await sleep(800);
+  const h = makeHelpers(page);
+  await page.setContent('<html><body style="margin:0;background:#000"></body></html>');
+  if (spec.warmup) await spec.warmup(h); // load caches off-camera
+  // White pre-roll: the cut to the dark title card is the sync mark found in step 5.
+  await page.setContent('<html><body style="margin:0;background:#fff"></body></html>');
+  await sleep(800);
+
+  // 3) start capture
+  const raw = path.join(work, 'raw.mp4');
+  const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'x11grab', '-draw_mouse', '0', '-video_size', `${W}x${H}`, '-framerate', String(FPS), '-i', DISPLAY,
+    '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '14', '-pix_fmt', 'yuv420p', raw], { stdio: ['pipe', 'ignore', 'inherit'] });
+  await sleep(2000);
+
+  // 4) perform scenes; tSync = moment the title card appears (detected later in the video)
+  const timeline = [];
+  let tSync = null;
+  for (const [i, sc] of spec.scenes.entries()) {
+    const t0 = Date.now();
+    if (i === 0) tSync = t0;
+    timeline.push({ start: (t0 - tSync) / 1000, sc });
+    const at = async sec => { const w = t0 + sec * 1000 - Date.now(); if (w > 0) await sleep(w); };
+    try {
+      if (sc.card) await page.setContent(cardHTML(sc.card));
+      if (sc.run) await sc.run(h, at);
+    } catch (e) {
+      console.error(`scene ${i} failed:`, e.message);
+      await page.screenshot({ path: path.join(work, `fail-${i}.png`) }).catch(() => {});
+      ff.stdin.write('q'); await browser.close().catch(() => {}); xvfb.kill();
+      throw e;
+    }
+    const minEnd = t0 + (sc.audio.dur + (sc.pad ?? 0.6)) * 1000;
+    if (Date.now() < minEnd) await sleep(minEnd - Date.now());
+    console.log(`  scene ${i + 1}/${spec.scenes.length} done (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+  }
+  const total = (Date.now() - tSync) / 1000 + 0.8;
+  await sleep(1000);
+  ff.stdin.write('q'); await new Promise(r => ff.on('close', r));
+  await browser.close(); xvfb.kill();
+
+  // 5) find the title card's first frame (white -> dark card is the first scene cut)
+  let syncPts = null;
+  try {
+    const log = execFileSync('bash', ['-c', `ffmpeg -hide_banner -i '${raw}' -vf "select='gt(scene,0.3)',showinfo" -f null - 2>&1 | grep -m1 -o 'pts_time:[0-9.]*'`]).toString();
+    syncPts = parseFloat(log.split(':')[1]);
+  } catch (e) { throw new Error('could not find sync frame'); }
+  console.log(`[${spec.code}] sync at ${syncPts.toFixed(2)} s, length ${total.toFixed(1)} s`);
+
+  // 6) captions
+  let srt = '', n = 1;
+  for (const { start, sc } of timeline) {
+    const chunks = captionChunks(sc.say), tot = chunks.reduce((a, c) => a + c.length, 0);
+    let t = start + 0.05;
+    for (const c of chunks) {
+      const d = sc.audio.dur * c.length / tot;
+      srt += `${n++}\n${srtTime(t)} --> ${srtTime(t + d)}\n${c}\n\n`; t += d;
+    }
+  }
+  const srtPath = path.join(work, `${spec.code}.srt`); fs.writeFileSync(srtPath, srt);
+
+  // 7) final mix
+  const outFile = path.join(ROOT, 'out', `${spec.code} - ${spec.title}.mp4`);
+  const args = ['-y', '-loglevel', 'error', '-ss', syncPts.toFixed(3), '-t', total.toFixed(3), '-i', raw];
+  timeline.forEach(({ sc }) => args.push('-i', sc.audio.file));
+  const mixes = timeline.map(({ start }, i) => `[${i + 1}:a]adelay=${Math.round(start * 1000)}:all=1[a${i}]`).join(';');
+  const style = "FontName=Inter,FontSize=15,PrimaryColour=&H00FFFFFF,BackColour=&H99000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=28";
+  const filter = `${mixes};${timeline.map((_, i) => `[a${i}]`).join('')}amix=inputs=${timeline.length}:normalize=0,apad[aout];` +
+    `[0:v]subtitles='${srtPath.replace(/'/g, "\\'")}':force_style='${style}'[vout]`;
+  args.push('-filter_complex', filter, '-map', '[vout]', '-map', '[aout]', '-t', total.toFixed(3),
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', outFile);
+  execFileSync('ffmpeg', args, { stdio: 'inherit' });
+  fs.copyFileSync(srtPath, outFile.replace(/\.mp4$/, '.srt'));
+  console.log(`[${spec.code}] wrote ${outFile}`);
+}
+
+main().catch(e => { console.error(e); process.exit(1); });
