@@ -130,7 +130,7 @@ const INIT = `(() => {
   new MutationObserver(ms => ms.forEach(m => { if (m.type === 'attributes') untitle(m.target); else m.addedNodes.forEach(n => n.nodeType === 1 && untitle(n)); }))
     .observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['title'] });
   const st2 = document.createElement('style');
-  st2.textContent = '.tooltip,[role=tooltip]{display:none!important}html.__carding #__cur{display:none!important}';
+  st2.textContent = '.tooltip,[role=tooltip],.graph-svg-tip,.chart-tooltip,.frappe-chart .tooltip{display:none!important}html.__carding #__cur{display:none!important}';
   document.addEventListener('DOMContentLoaded', () => document.head.appendChild(st2));
   setInterval(mk, 500);
 })();`;
