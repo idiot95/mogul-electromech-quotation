@@ -5,7 +5,7 @@
   #__ov_cur svg{filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
   .__ov_rip{position:fixed;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid #c63c33;z-index:2147483646;pointer-events:none;animation:__rip .6s ease-out forwards}
   @keyframes __rip{from{transform:scale(.3);opacity:1}to{transform:scale(1.4);opacity:0}}
-  #__ov_title{position:fixed;left:12px;bottom:48px;max-width:206px;line-height:1.25 !important;z-index:2147483645;pointer-events:none;background:#8f1414;color:#fff;font:700 17px/1 Archivo,Inter,Arial,sans-serif;padding:10px 16px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transform:translateY(-8px);transition:all .35s}
+  #__ov_title{position:fixed;left:50%;top:14px;translate:-50% 0;white-space:nowrap;z-index:2147483645;pointer-events:none;background:#8f1414;color:#fff;font:700 17px/1 Archivo,Inter,Arial,sans-serif;padding:10px 16px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transform:translateY(-8px);transition:all .35s}
   #__ov_title.on{opacity:1;transform:none}
   #__ov_keys{position:fixed;left:50%;bottom:120px;transform:translateX(-50%) scale(.9);z-index:2147483645;pointer-events:none;opacity:0;transition:all .25s;display:flex;gap:8px}
   #__ov_keys.on{opacity:1;transform:translateX(-50%) scale(1)}

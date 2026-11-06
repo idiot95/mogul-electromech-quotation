@@ -75,13 +75,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
   const role = (r, name, o = {}) => page.getByRole(r, { name, ...o });
 
-  // ---- warm up before recording ----
+  // ---- warm up before recording (signed out, on the sign-in page) ----
   await page.goto(BASE + "/");
-  await page.waitForSelector("text=Largest quotes");
+  await page.getByRole("button", { name: "Sign In" }).waitFor();
   await page.evaluate(() => { try { localStorage.clear(); sessionStorage.clear(); } catch {} });
   await page.reload();
-  await page.waitForSelector("text=Largest quotes");
-  await sleep(1500);
+  await page.getByRole("button", { name: "Sign In" }).waitFor();
+  await ov("card", `<div class="logo">ME</div><h1>Mogul Workspace</h1><p>Quotations · staff training</p>`);
+  await sleep(1200);
 
   // ---- start screen capture ----
   let ff = null;
@@ -94,7 +95,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const timeline = [];
   let sceneStart = 0, sceneDur = 0;
   const at = async (frac) => { const t = sceneStart + frac * sceneDur * 1000; const w = t - Date.now(); if (w > 0) await sleep(w); };
-  async function scene(id, fn, { pad = 700, title = true } = {}) {
+  async function scene(id, fn, { pad = 600, title = true } = {}) {
     const s = scenes.find((x) => x.id === id);
     sceneDur = durs[id];
     sceneStart = Date.now();
@@ -106,87 +107,123 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await at(1);
     await sleep(pad);
   }
+  const paperOf = (loc) => loc.locator("xpath=ancestor::div[contains(@class,'mantine-Paper-root')][1]");
+  const pw = () => page.locator("input[type=password]");
+  const cell = (row, col) => page.locator(`td[data-row="${row}"][data-col="${col}"]`);
 
   // ===================== SCENES =====================
   await scene("intro", async () => {
-    await ov("card", `<div class="logo">ME</div><h1>Mogul Workspace</h1><p>Quotations · staff training</p>`);
-    await at(0.42);
-    await ov("card", `<h1 style="font-size:46px">What we'll cover</h1><ul><li>Home screen</li><li>Making a quote from an enquiry</li><li>Print, PDF &amp; email</li><li>Revisions &amp; the quotation list</li><li>Customers &amp; settings</li></ul>`);
+    await at(0.45);
+    await ov("card", `<h1 style="font-size:44px">What we'll cover</h1><ul><li>Signing in</li><li>The dashboard</li><li>Making a quotation from an enquiry</li><li>Print, PDF &amp; email</li><li>Orders, lost quotations &amp; the list</li></ul>`);
     await at(0.97);
     await ov("card", null);
   }, { title: false, pad: 900 });
 
-  await scene("home", async () => {
-    await sleep(300);
-    await hl(page.locator(".mantine-SimpleGrid-root").first());
-    await moveTo(page.getByText("Quoted · excl. VAT"));
-    await at(0.45);
-    await hl(null);
-    await click(page.getByText("3 months", { exact: true }), { after: 900 });
-    await click(page.getByText("12 months", { exact: true }), { after: 900 });
-    await click(page.getByText("4 weeks", { exact: true }));
+  await scene("signin", async () => {
+    await at(0.3);
+    await click(page.getByLabel("Username"), { after: 200 });
+    await typeSlow("taher", 110);
+    await click(pw().first(), { after: 200 });
+    await typeSlow("amber-river-4821", 60);
+    await at(0.85);
+    await click(page.getByRole("button", { name: "Sign In" }), { after: 900 });
   });
 
-  await scene("home2", async () => {
-    await hl(page.getByText("By customer (AED)").locator("xpath=.."));
+  await scene("setpw", async () => {
+    await page.getByText("Set Your Password").waitFor();
+    await at(0.25);
+    await click(pw().nth(0), { after: 150 }); await typeSlow("amber-river-4821", 40);
+    await click(pw().nth(1), { after: 150 }); await typeSlow("Taher@Mogul26", 60);
+    await click(pw().nth(2), { after: 150 }); await typeSlow("Taher@Mogul26", 60);
+    await at(0.62);
+    await click(page.getByRole("button", { name: "Save Password" }), { after: 1200 });
+  });
+
+  await scene("dash", async () => {
+    await page.getByText("Follow-Up Required").waitFor();
+    await sleep(300);
+    await hl(paperOf(page.getByText("Quoted Value excl. VAT")));
+    await at(0.25);
+    await hl(paperOf(page.getByText("Orders Received excl. VAT")));
+    await at(0.38);
+    await hl(paperOf(page.getByText("Win Rate", { exact: true })));
+    await at(0.47);
+    await hl(paperOf(page.getByText("Awaiting Response", { exact: true })));
+    await at(0.66);
+    await hl(null);
+    await click(page.getByText("3 Months", { exact: true }), { after: 800 });
+    await click(page.getByText("12 Months", { exact: true }), { after: 800 });
+    await click(page.getByText("4 Weeks", { exact: true }));
+  });
+
+  await scene("dash2", async () => {
+    await hl(paperOf(page.getByText("Follow-Up Required")));
     await at(0.3);
     await hl(null);
-    await scrollIntoMid("text=Largest quotes", 1100);
-    await hl(page.getByText("Largest quotes").locator("xpath=../.."));
-    await at(0.75);
+    await scrollIntoMid("text=Quoted Value by Customer (AED)", 900);
+    await hl(paperOf(page.getByText("Lost Value by Reason (AED)")));
+    await at(0.5);
     await hl(null);
-    await moveTo(page.locator("table a").first());
+    await scrollIntoMid("text=Largest Quotations", 900);
+    await hl(paperOf(page.getByText("Largest Quotations")));
+    await at(0.7);
+    await hl(null);
+    await moveTo(page.getByText("Sales Rep", { exact: true }).last());
   });
 
   await scene("nav", async () => {
     await scrollTo(0, 600);
-    for (const n of ["Home", "Quotations", "Customers", "Settings"]) await moveTo(page.locator("nav").getByText(n, { exact: true }), { ms: 450 });
-    await at(0.62);
-    await hl(page.locator("nav").getByRole("link", { name: "New quote" }));
-    await at(0.82);
+    const nav = page.locator("nav");
+    await hl(nav.getByRole("link", { name: "New Quotation" }));
+    await moveTo(nav.getByRole("link", { name: "New Quotation" }), { ms: 450 });
     await hl(null);
-    await click(page.locator("nav").getByRole("link", { name: "New quote" }), { after: 600 });
+    for (const n of ["Dashboard", "Quotations", "Customers"]) await moveTo(nav.getByRole("link", { name: n, exact: true }), { ms: 450 });
+    await at(0.4);
+    await click(page.getByRole("button", { name: "Account" }), { after: 500 });
+    await hl(page.getByRole("menu"));
+    await at(0.8);
+    await hl(null);
+    await page.keyboard.press("Escape");
+    await click(nav.getByRole("link", { name: "New Quotation" }), { after: 800 });
   });
 
-  const custBox = () => page.getByPlaceholder("Type to search customers…");
+  const custBox = () => page.getByPlaceholder("Search").first();
   await scene("cust", async () => {
     await click(custBox());
     await at(0.12);
     await typeSlow("star", 160);
-    await at(0.3);
+    await at(0.28);
     await click(page.getByRole("option", { name: /STAR SUPER CEMENT/ }), { after: 700 });
-    await page.mouse.move(1500, 900);
-    await ov("cursor", 1500, 820, 600);
-    await hl(page.getByText("Terms", { exact: true }).locator("xpath=../.."));
-    await at(0.62);
+    await ov("cursor", 1150, 700, 600);
+    await hl(page.getByLabel("Address"));
+    await sleep(900);
+    await hl(paperOf(page.getByText("Terms", { exact: true })));
+    await at(0.9);
     await hl(null);
-    await moveTo(page.getByText("from customer").first());
-    await at(0.85);
-    await hl(page.getByText("Payment terms").locator("xpath=ancestor::div[contains(@class,'mantine-InputWrapper-root')]").first(), 1800);
   });
 
   await scene("newcust", async () => {
     await click(custBox(), { after: 700 });
-    await moveTo(page.getByRole("option", { name: /New customer/ }));
-    await at(0.35);
-    await click(page.getByRole("option", { name: /New customer/ }), { after: 900 });
-    await at(0.85);
+    await moveTo(page.getByRole("option", { name: /New Customer/ }));
+    await at(0.3);
+    await click(page.getByRole("option", { name: /New Customer/ }), { after: 900 });
+    await at(0.88);
     await click(page.getByRole("dialog").getByRole("button", { name: "Cancel" }), { after: 400 });
   });
 
   await scene("header", async () => {
-    await click(page.getByLabel("2 · Enquiry reference"), { after: 200 });
-    await page.keyboard.press("Escape");
-    await at(0.25);
-    await click(page.getByLabel("3 · Salesman"), { after: 500 });
-    await click(page.getByRole("option", { name: "Taher" }), { after: 300 });
-    await at(0.6);
-    await moveTo(page.getByLabel("Date"));
+    await hl(page.getByLabel("Enquiry Reference"));
+    await moveTo(page.getByLabel("Enquiry Reference"));
+    await at(0.3);
+    await hl(page.getByLabel("Sales Rep").first());
+    await moveTo(page.getByLabel("Sales Rep").first());
+    await at(0.55);
+    await hl(page.getByLabel("Quotation Date"));
     await at(0.75);
-    const att = page.getByLabel("Kind attention");
-    await click(att, { after: 150 });
-    await att.fill("");
-    await typeSlow("Mr. Suresh Menon (Purchase)", 55);
+    await hl(page.getByLabel("Attention"));
+    await moveTo(page.getByLabel("Attention"));
+    await at(0.97);
+    await hl(null);
   });
 
   // Excel mock
@@ -195,276 +232,301 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     rows.map((r, i) => `<tr data-r="${i}"><td class="h">${i + 1}</td>${[0, 1, 2, 3, 4, 5].map((c) => `<td${i === 1 ? ' style="font-weight:700"' : ""}>${r[c] || ""}</td>`).join("")}</tr>`).join("") + `</table>`;
 
   await scene("paste1", async () => {
-    await scrollIntoMid("text=4 · Paste items", 900);
-    await hl(page.getByText("4 · Paste items").locator("xpath=ancestor::div[contains(@class,'mantine-Paper-root')]").first());
+    await scrollIntoMid("text=Line Items", 900);
+    await hl(paperOf(page.getByText("Line Items", { exact: true })).or(page.locator("[data-line-grid]")).first());
     await at(0.22);
     await hl(null);
     await ov("xl", xlHtml, true);
     await sleep(700);
-    for (let r = 1; r < rows.length; r++) { await ov("xlSel", 1, r); await sleep(140); }
-    await ov("cursor", 1150, 640, 600);
-    await at(0.55);
-    await ov("keys", ["Ctrl", "C"], 1300);
-    await sleep(1500);
+    for (let r = 1; r < rows.length; r++) { await ov("xlSel", 1, r); await sleep(130); }
+    await ov("cursor", 900, 560, 600);
+    await at(0.6);
+    await ov("keys", ["Ctrl", "C"], 1200);
+    await sleep(1300);
     await page.evaluate(async (t) => {
       const html = "<table>" + t.split("\n").map((l) => "<tr>" + l.split("\t").map((c) => "<td>" + c + "</td>").join("") + "</tr>").join("") + "</table>";
       await navigator.clipboard.write([new ClipboardItem({ "text/plain": new Blob([t], { type: "text/plain" }), "text/html": new Blob([html], { type: "text/html" }) })]);
     }, PASTE);
     await ov("xl", null, false);
-    await at(0.82);
-    // focus the page body (not an input), then Ctrl+V
+    await at(0.86);
     await page.evaluate(() => { document.activeElement && document.activeElement.blur(); });
     await ov("keys", ["Ctrl", "V"], 1500);
     await sleep(250);
     await page.keyboard.press("Control+V");
-    try { await page.getByText("Paste preview").waitFor({ timeout: 1500 }); }
+    try { await page.getByText("Import Preview").waitFor({ timeout: 1500 }); }
     catch {
       await page.evaluate((t) => { const dt = new DataTransfer(); dt.setData("text/plain", t); document.body.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true })); }, PASTE);
-      await page.getByText("Paste preview").waitFor({ timeout: 3000 });
+      await page.getByText("Import Preview").waitFor({ timeout: 3000 });
     }
   });
 
   await scene("paste2", async () => {
     const dlg = page.getByRole("dialog");
-    await sleep(500);
-    await hl(dlg.getByText("Column mapping · change any").locator("xpath=.."));
+    await sleep(400);
+    await hl(dlg.getByText("Column Mapping", { exact: true }).locator("xpath=.."));
     await at(0.3);
     await hl(dlg.locator("table"));
-    await at(0.42);
+    await at(0.45);
     await moveTo(dlg.getByText("MOTOR SPARES"));
-    await at(0.5);
-    await hl(dlg.getByText("Enquiry reference found").locator("xpath=ancestor::div[contains(@class,'mantine-Alert-root')]"));
-    await at(0.66);
+    await at(0.6);
+    await hl(dlg.getByText(/Enquiry Reference to/).locator("xpath=ancestor::div[contains(@class,'mantine-Alert-root')]"));
+    await at(0.72);
     await hl(null);
-    await moveTo(dlg.locator("select").nth(1));
-    await at(0.85);
+    await moveTo(dlg.locator("select, .mantine-Select-input, .mantine-NativeSelect-input").nth(1));
+    await at(0.9);
     await click(dlg.getByRole("button", { name: /Add \d+ lines/ }), { after: 900 });
   });
 
-  await scene("email-paste", async () => {
-    await sleep(400);
-    await hl(page.getByRole("button", { name: "Import .xlsx / .csv" }));
-    await moveTo(page.getByRole("button", { name: "Import .xlsx / .csv" }));
+  await scene("pdf", async () => {
+    await sleep(300);
+    const imp = page.getByText("Import File: drop or click");
+    await hl(imp);
+    await moveTo(imp);
+    await at(0.2);
+    await hl(null);
+    await ov("ripple", cx, cy);
+    const [fc] = await Promise.all([page.waitForEvent("filechooser"), page.mouse.click(cx, cy)]);
+    await fc.setFiles(path.join(DIR, "ESF-1107 RFQ.pdf"));
+    await page.getByText("Original Document").waitFor({ timeout: 30000 });
+    await sleep(600);
+    await hl(paperOf(page.getByText("Original Document")).or(page.getByText("Original Document").locator("xpath=../..")).first());
     await at(0.6);
+    await hl(page.getByRole("dialog").locator("table"));
+    await at(0.85);
     await hl(null);
-    await hl(page.locator("table.grid, table").filter({ has: page.locator('[data-col="rate"]') }).first());
-    await at(0.95);
-    await hl(null);
+    await click(page.getByRole("dialog").getByRole("button", { name: "Cancel" }), { after: 500 });
   });
 
   await scene("rates", async () => {
-    const rateCells = page.locator('[data-col="rate"]');
-    const first = await page.locator('[data-col="rate"]:focus').count();
-    if (!first) await click(rateCells.nth(0));
+    // focus the first rate cell (Carbon brush, row 1)
+    await click(cell(1, 3), { after: 300 });
     await at(0.2);
     for (const r of ["18.50", "245", "112", "26.75"]) {
-      await typeSlow(r, 140);
-      await sleep(250);
-      await ov("keys", ["Enter"], 700);
+      await typeSlow(r, 130);
+      await sleep(200);
+      await ov("keys", ["Enter"], 650);
       await page.keyboard.press("Enter");
-      await sleep(700);
+      await sleep(600);
     }
-    await at(0.62);
-    await hl(page.getByText(/Totals \(/).locator("xpath=.."));
-    await at(0.78);
-    await hl(page.getByText(/has no rate|have no rate/));
-    await at(0.97);
+    await at(0.7);
+    await hl(paperOf(page.getByText("Totals (AED)")));
+    await at(0.85);
+    await hl(page.getByText(/without rate/).first());
+    await at(0.98);
     await hl(null);
   });
 
   await scene("grid", async () => {
-    // menu on the V-Belt line
-    const row = page.locator("tr").filter({ has: page.locator('[data-col="rate"]') }).filter({ hasText: "" });
-    const menuBtn = page.getByRole("button", { name: "Row actions" }).nth(5);
-    await moveTo(page.locator('[data-col="description"]').nth(5));
+    await click(cell(2, 0), { after: 300 });
+    for (const k of ["ArrowRight", "ArrowRight", "ArrowDown", "ArrowRight"]) { await ov("keys", [k.replace("Arrow", "")], 500); await page.keyboard.press(k); await sleep(450); }
+    await at(0.3);
+    const menuBtn = page.locator('tr:has(td[data-row="5"]) [aria-label="Row actions"]');
     await click(menuBtn, { after: 600 });
-    await at(0.28);
-    await moveTo(page.getByRole("menuitem", { name: "Insert heading above" }), { ms: 400 });
-    await moveTo(page.getByRole("menuitem", { name: "Duplicate" }), { ms: 400 });
-    await moveTo(page.getByRole("menuitem", { name: "Move up" }), { ms: 400 });
-    await moveTo(page.getByRole("menuitem", { name: "Delete line" }), { ms: 400 });
+    for (const n of ["Insert Line Above", "Insert Section Above", "Duplicate", "Move Up", "Delete Line"]) {
+      const it = page.getByRole("menuitem", { name: new RegExp("^" + n, "i") });
+      if (await it.count()) await moveTo(it, { ms: 350 });
+    }
     await page.keyboard.press("Escape");
-    await at(0.45);
-    await moveTo(page.locator(".grip").nth(4));
-    await at(0.6);
-    // the last copper line has no rate: fill it from the line above with Ctrl+D
-    const last = page.locator('[data-col="rate"]').nth(4);
-    await click(last, { after: 300 });
-    await keys(["Ctrl", "D"], "Control+D", 800);
-    await at(0.8);
-    await moveTo(page.getByRole("button", { name: "Undo" }));
-    await sleep(500);
-    // put the right rate in
-    await click(last, { after: 200 });
-    await page.keyboard.press("Control+A");
+    await at(0.62);
+    // the copper line has no rate: Ctrl+D copies the rate above, then type the right one
+    await click(cell(6, 3), { after: 300 });
+    await keys(["Ctrl", "D"], "Control+D", 900);
+    await at(0.82);
     await typeSlow("14.20", 120);
+    await page.keyboard.press("Enter");
+    await sleep(300);
   });
 
   await scene("notes", async () => {
     await scrollIntoMid("text=Remarks", 800);
-    const rem = page.getByLabel(/^Remarks/);
-    await click(rem, { after: 150 });
-    await typeSlow("Brands as specified. Delivery within 2–3 weeks from PO.", 32);
-    const inn = page.getByLabel(/^Internal notes/);
-    await click(inn, { after: 150 });
-    await typeSlow("Bearings: check stock with SKF dealer.", 32);
+    await click(page.getByLabel("Remarks"), { after: 150 });
+    await typeSlow("Brands as specified. Delivery within 2–3 weeks from PO.", 30);
+    await click(page.getByLabel("Internal Notes"), { after: 150 });
+    await typeSlow("Bearings: check stock with SKF dealer.", 30);
   });
 
   await scene("save", async () => {
     await page.evaluate(() => document.activeElement && document.activeElement.blur());
-    await scrollTo(0, 800);
-    await moveTo(page.getByRole("button", { name: /^Save/ }));
+    await scrollTo(0, 700);
+    await moveTo(page.getByRole("button", { name: "Save", exact: true }));
     await at(0.15);
     await keys(["Ctrl", "S"], "Control+S", 900);
     await page.getByRole("heading", { name: /ME-26-\d+/ }).waitFor();
     await hl(page.getByRole("heading", { name: /ME-26-\d+/ }));
-    await at(0.7);
+    await at(0.85);
     await hl(null);
   });
 
-  // a "working" image to attach
   await scene("workings", async () => {
-    await hl(page.getByText("Workings", { exact: true }).locator("xpath=ancestor::div[contains(@class,'mantine-Paper-root')]").first());
+    const wk = page.locator("[data-workings]");
+    await hl(wk);
     await at(0.3);
-    await moveTo(page.getByText("Drop or tap to add a photo / file"));
+    await moveTo(wk.getByText("Add File"));
     await ov("ripple", cx, cy);
-    await page.locator('input[type="file"]').last().setInputFiles(path.join(DIR, "working.png"));
+    await wk.locator('input[type="file"]').setInputFiles(path.join(DIR, "working.png"));
     await sleep(1500);
-    await hl(page.getByText("Workings", { exact: true }).locator("xpath=ancestor::div[contains(@class,'mantine-Paper-root')]").first());
+    await hl(wk);
     await at(0.9);
     await hl(null);
   });
 
   await scene("print", async () => {
-    await click(page.getByRole("button", { name: "Print / Save as PDF" }), { after: 1200 });
+    await click(page.getByRole("button", { name: "Print / PDF" }), { after: 1200 });
     await page.locator(".paper-wrap").waitFor();
-    await at(0.2);
-    await ov("cursor", 1200, 700, 600);
-    await scrollIntoMid(".paper-wrap", 1500);
-    await at(0.45);
+    await at(0.15);
+    await ov("cursor", 1000, 600, 600);
+    await scrollIntoMid(".paper-wrap", 1200);
+    await at(0.35);
     const docH = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
-    await scrollTo(docH, 4000);
-    await at(0.62);
-    await scrollTo(0, 1500);
-    await moveTo(page.getByRole("button", { name: "Print / Save as PDF" }));
+    await scrollTo(docH, 3500);
+    await at(0.6);
+    await scrollTo(0, 1200);
     await hl(page.getByRole("button", { name: "Print / Save as PDF" }));
+    await moveTo(page.getByRole("button", { name: "Print / Save as PDF" }));
     await at(0.82);
-    await hl(page.locator("code").first());
     await at(0.98);
     await hl(null);
   });
 
   await scene("email", async () => {
-    await click(page.getByRole("button", { name: "Email via Outlook" }), { after: 800 });
+    await click(page.getByRole("button", { name: "Email", exact: true }), { after: 800 });
     const dlg = page.getByRole("dialog");
-    await hl(dlg.getByLabel("To"), 900);
-    await hl(dlg.getByLabel("Subject"), 900);
+    await hl(dlg.getByLabel("To"), 800);
+    await hl(dlg.getByLabel("Subject"), 800);
     await hl(dlg.getByLabel("Message"));
-    await at(0.42);
-    await hl(null);
-    await moveTo(dlg.getByRole("button", { name: "Open in Outlook" }));
+    await at(0.5);
     await hl(dlg.getByRole("button", { name: "Open in Outlook" }));
-    await at(0.68);
-    await hl(dlg.getByText("Attach the PDF").locator("xpath=ancestor::div[contains(@class,'mantine-Alert-root')]"));
+    await moveTo(dlg.getByRole("button", { name: "Open in Outlook" }));
     await at(0.92);
     await hl(null);
-    await click(dlg.getByRole("button", { name: "Cancel" }));
+    await click(dlg.getByRole("button", { name: "Cancel" }), { after: 400 });
+    await click(page.getByRole("link", { name: /^Back to ME-26/ }), { after: 1000 });
   });
 
-  await scene("revise", async () => {
-    await click(page.getByRole("link", { name: "Back to editor" }), { after: 900 });
-    await click(page.getByRole("button", { name: /Revise \(REV 01\)/ }), { after: 700 });
-    await at(0.25);
-    await click(page.getByRole("dialog").getByRole("button", { name: "Create revision" }), { after: 1200 });
-    await page.getByRole("heading", { name: /REV 01/ }).waitFor();
-    await hl(page.getByRole("heading", { name: /REV 01/ }));
-    await at(0.55);
-    await hl(page.getByText("Revisions", { exact: true }).locator("xpath=ancestor::div[contains(@class,'mantine-Paper-root')]").first());
+  await scene("lost", async () => {
+    await hl(paperOf(page.getByText("Order Status", { exact: true })));
+    await at(0.2);
+    await hl(null);
+    await click(page.getByRole("button", { name: "Mark as Lost" }), { after: 700 });
+    const dlg = page.getByRole("dialog");
+    await at(0.4);
+    await click(dlg.getByText("Price", { exact: true }), { after: 400 });
+    await click(dlg.getByLabel("Notes"), { after: 150 });
+    await typeSlow("Competitor 5% lower", 50);
     await at(0.8);
+    await hl(dlg);
+    await sleep(900);
     await hl(null);
-    await click(page.getByRole("link", { name: /ME-26-\d+$/ }).last(), { after: 900 });
-    await hl(page.getByText("This revision was replaced").locator("xpath=ancestor::div[contains(@class,'mantine-Alert-root')]"));
-    await at(0.96);
+    await click(dlg.getByRole("button", { name: "Cancel" }), { after: 400 });
+  });
+
+  await scene("order", async () => {
+    await click(page.getByRole("button", { name: "Record Order" }), { after: 800 });
+    const dlg = page.getByRole("dialog");
+    await click(dlg.getByLabel("PO Number"), { after: 150 });
+    await typeSlow("SSC/PO/26/1187", 70);
+    await moveTo(dlg.getByLabel("PO Date"));
+    await at(0.35);
+    await click(dlg.getByRole("button", { name: "Select All" }), { after: 500 });
+    await hl(dlg.locator("table"));
+    await at(0.62);
     await hl(null);
-    await click(page.getByRole("link", { name: "Open the latest revision →" }), { after: 600 });
+    // the customer ordered fewer V-belts
+    const qty = dlg.locator("table input").nth(0);
+    if (await qty.count()) { await moveTo(qty); }
+    await at(0.8);
+    await click(dlg.getByRole("button", { name: "Save", exact: true }), { after: 1000 });
+    await hl(paperOf(page.getByText(/Order Status/).first()));
+    await at(0.98);
+    await hl(null);
   });
 
   await scene("more", async () => {
-    await page.getByRole("heading", { name: /REV 01/ }).waitFor();
-    await hl(page.getByRole("button", { name: "Duplicate as new quote" }));
-    await moveTo(page.getByRole("button", { name: "Duplicate as new quote" }));
-    await at(0.33);
-    await hl(page.getByRole("button", { name: "Cancel quote" }));
-    await moveTo(page.getByRole("button", { name: "Cancel quote" }));
-    await at(0.66);
-    await hl(page.getByRole("button", { name: "Delete draft" }));
-    await moveTo(page.getByRole("button", { name: "Delete draft" }));
+    await click(page.getByRole("button", { name: "More actions" }), { after: 600 });
+    await at(0.15);
+    await moveTo(page.getByRole("menuitem", { name: /Create Revision/ }), { ms: 400 });
+    await at(0.5);
+    await moveTo(page.getByRole("menuitem", { name: /Duplicate as New Quotation/ }), { ms: 400 });
+    await at(0.72);
+    const cancelQ = page.getByRole("menuitem", { name: /Cancel Quotation/ });
+    if (await cancelQ.count()) await moveTo(cancelQ, { ms: 400 });
     await at(0.95);
-    await hl(null);
+    await page.keyboard.press("Escape");
   });
 
   await scene("list", async () => {
-    await click(page.locator("nav").getByText("Quotations", { exact: true }), { after: 900 });
+    await click(page.locator("nav").getByRole("link", { name: "Quotations", exact: true }), { after: 900 });
     const s = page.getByLabel("Search");
     await click(s, { after: 200 });
-    await typeSlow("bearing", 150);
-    await sleep(1200);
-    await at(0.3);
+    await typeSlow("bearing", 140);
+    await sleep(1000);
+    await at(0.35);
     await s.fill("");
-    await sleep(500);
-    await click(page.getByLabel("Salesman"), { after: 500 });
-    await click(page.getByRole("option", { name: "Taher" }), { after: 1100 });
-    await at(0.52);
-    const clr = page.getByLabel("Salesman").first().locator("xpath=..").locator("button");
-    if (await clr.count()) await click(clr.first(), { after: 300 }); else await page.goto(BASE + "/quotes");
-    await sleep(500);
-    await at(0.6);
-    await click(page.getByLabel("Show replaced revisions"), { after: 900 });
-    await at(0.8);
-    await hl(page.getByRole("button", { name: "Export CSV" }));
-    await moveTo(page.getByRole("button", { name: "Export CSV" }));
+    await sleep(400);
+    await hl(page.getByLabel("Status"));
+    await click(page.getByLabel("Status"), { after: 500 });
+    await click(page.getByRole("option", { name: "Won" }), { after: 1000 });
+    await hl(null);
+    await at(0.62);
+    await hl(page.getByText(/^Ordered/).first());
+    await at(0.75);
+    await hl(null);
+    const clr = page.getByLabel("Status").locator("xpath=..").locator("button");
+    if (await clr.count()) await click(clr.first(), { after: 400 });
+    await hl(page.getByRole("button", { name: "Export to Excel" }));
+    await moveTo(page.getByRole("button", { name: "Export to Excel" }));
     await at(0.97);
     await hl(null);
   });
 
   await scene("customers", async () => {
-    await click(page.locator("nav").getByText("Customers", { exact: true }), { after: 900 });
+    await click(page.locator("nav").getByRole("link", { name: "Customers", exact: true }), { after: 900 });
     await hl(page.locator("table"));
     await at(0.3);
     await hl(null);
     await click(page.getByRole("cell", { name: "AL FUTTAIM ENGINEERING LLC" }), { after: 900 });
-    await hl(page.getByText("Default terms · copied onto every new quote").locator("xpath=../.."));
-    await at(0.72);
+    await hl(page.getByRole("dialog").getByLabel("Payment terms").or(page.getByRole("dialog").getByLabel("Payment Terms")).first().locator("xpath=ancestor::div[contains(@class,'mantine-SimpleGrid-root')][1]"));
+    await at(0.92);
     await hl(null);
-    await click(page.getByRole("dialog").getByRole("button", { name: "Cancel" }), { after: 500 });
-    await hl(page.getByRole("button", { name: "Import Excel / CSV" }));
-    await moveTo(page.getByRole("button", { name: "Import Excel / CSV" }));
-    await at(0.97);
+    await click(page.getByRole("dialog").getByRole("button", { name: "Cancel" }), { after: 400 });
+  });
+
+  await scene("admin", async () => {
+    // sign out, sign in as the admin
+    await click(page.getByRole("button", { name: "Account" }), { after: 400 });
+    await click(page.getByRole("menuitem", { name: "Sign Out" }), { after: 900 });
+    await page.getByRole("button", { name: "Sign In" }).waitFor();
+    await page.getByLabel("Username").fill("admin");
+    await pw().first().fill("Admin#2026");
+    await click(page.getByRole("button", { name: "Sign In" }), { after: 1000 });
+    await page.locator("nav").getByRole("link", { name: "Users" }).waitFor();
+    await click(page.locator("nav").getByRole("link", { name: "Users" }), { after: 900 });
+    await at(0.45);
+    await hl(page.locator("table"));
+    await at(0.65);
     await hl(null);
+    const rowMenu = page.locator("tr", { hasText: "taher" }).locator("button").last();
+    await click(rowMenu, { after: 500 });
+    await moveTo(page.getByRole("menuitem", { name: "Set Password" }), { ms: 400 });
+    await at(0.95);
+    await page.keyboard.press("Escape");
   });
 
   await scene("settings", async () => {
-    await click(page.locator("nav").getByText("Settings", { exact: true }), { after: 900 });
-    await hl(page.getByText("Company · letterhead").locator("xpath=ancestor::div[contains(@class,'mantine-Paper-root')]").first());
-    await at(0.2);
+    await click(page.locator("nav").getByRole("link", { name: "Settings" }), { after: 900 });
+    await hl(paperOf(page.getByText("Company Details")));
+    await at(0.35);
     await hl(null);
-    await scrollIntoMid("text=Number prefix", 1000);
-    await hl(page.getByText("Quotations", { exact: true }).locator("xpath=ancestor::div[contains(@class,'mantine-Paper-root')]").last());
-    await at(0.55);
+    await scrollIntoMid("text=Quotation Defaults", 900);
+    await hl(paperOf(page.getByText("Quotation Defaults")));
+    await at(0.95);
     await hl(null);
-    await scrollIntoMid("text=Add salesman", 1000);
-    await at(0.68);
-    await click(page.getByRole("cell", { name: "Taher", exact: true }), { after: 900 });
-    await hl(page.getByRole("dialog").getByLabel("Email template"));
-    await at(0.97);
-    await hl(null);
-    await click(page.getByRole("dialog").getByRole("button", { name: "Cancel" }));
   });
 
   await scene("outro", async () => {
     await ov("title", null);
-    await ov("card", `<h1 style="font-size:50px">Quick recap</h1><ul><li>Pick the customer</li><li>Paste the items (Ctrl + V)</li><li>Enter the rates</li><li>Save (Ctrl + S)</li><li>Print / PDF, then email</li></ul>`);
-    await at(0.82);
+    await ov("card", `<h1 style="font-size:48px">Quick recap</h1><ul><li>Pick the customer</li><li>Paste or import the items</li><li>Enter the rates, then Save</li><li>Print / PDF and email</li><li>Record the order, or why it was lost</li></ul>`);
+    await at(0.85);
     await ov("card", `<div class="logo">ME</div><h1>Happy quoting!</h1><p>Mogul Electromech LLC</p>`);
   }, { title: false, pad: 2200 });
 
@@ -472,4 +534,4 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (ff) { ff.stdin.write("q"); await new Promise((r) => ff.on("close", r)); }
   await browser.close();
   console.log("done");
-})().catch(async (e) => { console.error(e); try { await global.__page.screenshot({ path: path.join(DIR, "fail.png") }); } catch {} process.exit(1); });
+})().catch(async (e) => { console.error(e); try { await global.__page.screenshot({ path: path.join(__dirname, "fail.png") }); } catch {} process.exit(1); });
