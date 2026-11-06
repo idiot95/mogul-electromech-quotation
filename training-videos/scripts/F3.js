@@ -10,7 +10,7 @@ module.exports = {
   version: '1.0',
   start: '/desk/quotation',
   keepSettings: ['Quotation'],
-  async warmup(h) { await h.go('/desk/quotation'); await removeDemo(h); await h.go('/desk/quotation/new'); await h.go('/desk/quotation'); },
+  async warmup(h) { await h.go('/desk/quotation'); await removeDemo(h); },
   async cleanup(h) { await removeDemo(h); },
   privacyCSS: '',
   scenes: [
