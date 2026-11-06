@@ -23,5 +23,30 @@
     "build": "b9490a5",
     "file": "F1 v1.0 - Find your way around the ERP.mp4",
     "sha256": "eda997fcc71948d9093292ae88bf860b7eaa63434006cb6993f39fca4370103a"
+  },
+  {
+    "code": "F2",
+    "title": "Search bar, list views, filters and saved views",
+    "version": "1.0",
+    "released": "2026-11-06T11:46:14.670Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "ab282d9",
+    "file": "F2 v1.0 - Search bar, list views, filters and saved views.mp4",
+    "sha256": "1934636b1281a41a589a16d0c41d25b53f7adbec9d23bc3a8b83595b79d0097d"
   }
 ]

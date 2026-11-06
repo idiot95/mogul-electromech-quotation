@@ -29,9 +29,14 @@ const erp = {
   doctypeExists: d => { try { curl([`${BASE}${res('DocType')}/${encodeURIComponent(d)}`]); return true; } catch { return false; } },
   // Upload a file as PRIVATE (login + permission required to download), attached to a document.
   upload(file, { doctype, docname, fieldname }) {
-    const args = ['-X', 'POST', `${BASE}/api/method/upload_file`, '-F', `file=@${file}`, '-F', 'is_private=1', '-F', `doctype=${doctype}`, '-F', `docname=${docname}`];
+    // curl -F treats ',' and ';' in a file path as option separators, so upload a copy with a plain
+    // name and send the real name separately.
+    const os = require('os'), fs = require('fs'), path = require('path');
+    const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'up-')), 'video' + path.extname(file));
+    fs.copyFileSync(file, tmp);
+    const args = ['-X', 'POST', `${BASE}/api/method/upload_file`, '-F', `file=@${tmp};filename=${path.basename(file).replace(/[;,"]/g, '')}`, '-F', 'is_private=1', '-F', `doctype=${doctype}`, '-F', `docname=${docname}`];
     if (fieldname) args.push('-F', `fieldname=${fieldname}`);
-    return curl(args).message;
+    try { return curl(args).message; } finally { fs.rmSync(path.dirname(tmp), { recursive: true, force: true }); }
   },
 };
 module.exports = erp;
