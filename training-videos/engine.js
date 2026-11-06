@@ -313,7 +313,14 @@ async function main() {
   for (const sc of spec.scenes) Object.assign(sc, { audio: tts(sc.say, cache) });
   console.log(`[${spec.code}] narration: ${spec.scenes.reduce((a, s) => a + s.audio.dur, 0).toFixed(1)} s over ${spec.scenes.length} scenes`);
 
-  // 2) virtual display + browser
+  // 2) virtual display + browser — one recording per display at a time
+  const lock = `/tmp/.X${DISPLAY.slice(1)}-lock`;
+  if (fs.existsSync(lock)) {
+    const pid = parseInt(fs.readFileSync(lock, 'utf8'), 10);
+    let alive = false; try { process.kill(pid, 0); alive = true; } catch (e) { /* stale */ }
+    if (alive) throw new Error(`Display ${DISPLAY} is in use by another recording (pid ${pid}). Wait for it, or set REC_DISPLAY=:100.`);
+    fs.unlinkSync(lock);
+  }
   const xvfb = spawn('Xvfb', [DISPLAY, '-screen', '0', `${W}x${H}x24`, '-nolisten', 'tcp'], { stdio: 'ignore' });
   await sleep(1200);
   const browser = await chromium.launch({
