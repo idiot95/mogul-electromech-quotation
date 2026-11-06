@@ -220,12 +220,23 @@ function makeHelpers(page) {
     },
     // Full-screen cards (notice, title, end) drawn over the already-loaded ERP.
     async showCard(html) {
+      // Load the card in a hidden frame and swap it in only once it has loaded (with its fonts and
+      // logo), so no blank or black frame is ever recorded between cards.
       await page.evaluate(html => {
-        let f = document.getElementById('__card');
-        if (!f) { f = document.createElement('iframe'); f.id = '__card'; Object.assign(f.style, { position: 'fixed', inset: 0, width: '100vw', height: '100vh', border: 0, zIndex: 2147483645, background: '#000' }); document.documentElement.appendChild(f); }
-        f.srcdoc = html; document.documentElement.classList.add('__carding');
+        document.getElementById('__card_next')?.remove();
+        const f = document.createElement('iframe'); f.id = '__card_next';
+        Object.assign(f.style, { position: 'fixed', inset: 0, width: '100vw', height: '100vh', border: 0, zIndex: 2147483646, visibility: 'hidden' });
+        f.onload = () => { (f.contentDocument?.fonts?.ready || Promise.resolve()).then(() => { f.dataset.ready = '1'; }); };
+        f.srcdoc = html; document.documentElement.appendChild(f);
       }, html);
-      await page.waitForFunction(() => { const f = document.getElementById('__card'); return f && f.contentDocument && f.contentDocument.readyState === 'complete' && f.contentDocument.body && f.contentDocument.body.children.length; }, null, { timeout: 5000 }).catch(() => {});
+      await page.waitForFunction(() => document.getElementById('__card_next')?.dataset.ready === '1', null, { timeout: 5000 }).catch(() => {});
+      await sleep(60);
+      await page.evaluate(() => {
+        const nf = document.getElementById('__card_next'); if (!nf) return;
+        nf.style.visibility = 'visible'; nf.style.zIndex = '2147483645';
+        document.getElementById('__card')?.remove(); nf.id = '__card';
+        document.documentElement.classList.add('__carding');
+      });
       await sleep(150);
     },
     async hideCard() {
