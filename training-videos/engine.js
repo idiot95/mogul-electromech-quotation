@@ -28,6 +28,7 @@ const PRIVACY_CSS = [
 // ---------- narration ----------
 // TTS_PROVIDER = piper (offline, default) | kokoro (offline, American) | elevenlabs | azure
 //   kokoro:     KOKORO_DIR, KOKORO_VOICE (default am_michael), KOKORO_PYTHON (python with kokoro-onnx)
+//   omnivoice:  OMNIVOICE_PYTHON, OMNIVOICE_SRC, OMNIVOICE_REF, OMNIVOICE_REF_TEXT (see tts_omnivoice.py)
 //   elevenlabs: ELEVEN_VOICE_ID (default: a calm narrator voice), ELEVEN_MODEL (default eleven_multilingual_v2)
 //   azure:      AZURE_TTS_REGION (e.g. centralindia), AZURE_VOICE (default en-IN-NeerjaNeural)
 // API keys are never read here: the cloud session's network proxy adds them to the request.
@@ -36,6 +37,7 @@ const PROVIDER = process.env.TTS_PROVIDER || 'piper';
 function voiceId() {
   if (PROVIDER === 'elevenlabs') return 'el:' + (process.env.ELEVEN_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb') + ':' + (process.env.ELEVEN_MODEL || 'eleven_multilingual_v2');
   if (PROVIDER === 'azure') return 'az:' + (process.env.AZURE_VOICE || 'en-IN-NeerjaNeural');
+  if (PROVIDER === 'omnivoice') return 'omnivoice:' + crypto.createHash('sha1').update(fs.readFileSync(process.env.OMNIVOICE_REF)).digest('hex').slice(0, 10);
   if (PROVIDER === 'kokoro') return 'kokoro:' + (process.env.KOKORO_VOICE || 'am_michael') + ':' + (process.env.KOKORO_SPEED || '1.0');
   return 'piper:' + VOICE;
 }
@@ -50,6 +52,7 @@ function synth(text, out) {
       { input: text, stdio: ['pipe', 'ignore', 'inherit'] });
     return;
   }
+  if (PROVIDER === 'omnivoice') throw new Error('omnivoice line missing after batch: ' + text.slice(0, 40));
   const mp3 = out.replace(/\.wav$/, '.mp3');
   let args;
   if (PROVIDER === 'elevenlabs') {
@@ -71,9 +74,17 @@ function synth(text, out) {
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', mp3, '-ar', '44100', '-ac', '1', out]);
   fs.unlinkSync(mp3);
 }
+const cachePath = (text, cacheDir) => path.join(cacheDir, crypto.createHash('sha1').update(voiceId() + '|' + text).digest('hex').slice(0, 16) + '.wav');
+// OmniVoice loads a 3 GB model, so all missing lines are voiced in one batch first.
+function prevoice(texts, cacheDir) {
+  if (PROVIDER !== 'omnivoice') return;
+  const jobs = [...new Set(texts)].map(text => ({ text, out: cachePath(text, cacheDir) })).filter(j => !fs.existsSync(j.out));
+  if (!jobs.length) return;
+  const jf = path.join(cacheDir, 'omnivoice-jobs.json'); fs.writeFileSync(jf, JSON.stringify(jobs));
+  execFileSync(process.env.OMNIVOICE_PYTHON || 'python3', [path.join(ROOT, 'tts_omnivoice.py'), jf], { stdio: ['ignore', 'ignore', 'inherit'] });
+}
 function tts(text, cacheDir) {
-  const key = crypto.createHash('sha1').update(voiceId() + '|' + text).digest('hex').slice(0, 16);
-  const out = path.join(cacheDir, key + '.wav');
+  const out = cachePath(text, cacheDir);
   if (!fs.existsSync(out)) synth(text, out);
   const dur = parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]).toString());
   return { file: out, dur };
@@ -224,6 +235,7 @@ async function main() {
   const work = path.join(ROOT, 'out', spec.code); fs.mkdirSync(work, { recursive: true });
 
   // 1) voice every scene up front, so timings are known before recording
+  prevoice(spec.scenes.map(sc => sc.say), cache);
   for (const sc of spec.scenes) Object.assign(sc, { audio: tts(sc.say, cache) });
   console.log(`[${spec.code}] narration: ${spec.scenes.reduce((a, s) => a + s.audio.dur, 0).toFixed(1)} s over ${spec.scenes.length} scenes`);
 
