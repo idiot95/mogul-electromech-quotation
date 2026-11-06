@@ -40,7 +40,10 @@ module.exports = {
       async run(h, at) {
         const row = h.page.locator('.frappe-control[data-fieldname=items] .grid-body .grid-row:visible').first();
         await h.moveTo(row); await h.scroll(260);
-        await at(3.4); await h.click(row.locator('[data-fieldname=item_code]').first(), { after: 400 }); await h.type('DEMO-Carbon', 90);
+        await at(3.4); await h.click(row.locator('[data-fieldname=item_code]').first(), { after: 300 });
+        // The cell turns into an input after the click; type only once that input has focus.
+        await h.page.waitForFunction(() => document.activeElement?.getAttribute('data-fieldname') === 'item_code', null, { timeout: 5000 });
+        await h.sleep(250); await h.type('DEMO-Carbon', 90);
         await pickOption(h, ITEM);
         await at(7.2); await h.click(row.locator('[data-fieldname=qty]').first(), { after: 400 });
         const qty = row.locator('input[data-fieldname=qty]:visible').first();
