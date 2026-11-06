@@ -67,6 +67,9 @@ module.exports = {
         await h.click(cell, { after: 300 });
         await h.page.waitForFunction(() => document.activeElement?.getAttribute('data-fieldname') === 'delivery_date', null, { timeout: 5000 }).catch(() => {});
         await h.press('Control+a'); await h.type(dueDate(), 90); await h.press('Tab');
+        // Close the date picker: it stays open after typing a date into a table cell.
+        await h.press('Escape');
+        await h.page.evaluate(() => { document.activeElement?.blur(); document.querySelectorAll('.datepicker.active').forEach(d => d.classList.remove('active')); });
         await h.sleep(500);
         await h.page.evaluate(async d => { const r = cur_frm.doc.items[0]; if (!r.delivery_date) await frappe.model.set_value(r.doctype, r.name, 'delivery_date', frappe.datetime.user_to_str(d)); }, dueDate());
       },
