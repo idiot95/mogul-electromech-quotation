@@ -20,6 +20,10 @@ const MASTERS = [
 ];
 
 // Items are numbered automatically (ST…), so they are found by item name, customers by name.
+// A user to assign to and @mention in videos, so no real colleague is named or notified.
+// No roles and no password: nobody can sign in as it.
+const USERS = [{ email: 'demo.trainee@hatimcarbon.com', first_name: 'DEMO', last_name: 'Trainee' }];
+
 // A submitted default BOM for the demo carbon brush (1 brush from 1 carbon block). A BOM posts
 // nothing to accounts or stock; it lets videos show choosing a BOM on a Sales Order and a Work Order.
 const BOMS = [{ item: 'DEMO-Carbon Brush 20x32x40', raw: 'DEMO-Carbon Block CB-50', qty: 1 }];
@@ -43,4 +47,11 @@ for (const b of BOMS) {
   const bom = erp.insert('BOM', { item, quantity: 1, is_active: 1, is_default: 1, items: [{ item_code: raw, qty: b.qty }] });
   erp.call('frappe.client.submit', { doc: { ...erp.get('BOM', bom.name), doctype: 'BOM' } });
   console.log(`+ BOM ${bom.name} (submitted, default)`);
+}
+
+for (const u of USERS) {
+  if (erp.list('User', [['name', '=', u.email]]).length) { console.log(`= User ${u.email}`); continue; }
+  if (list) { console.log(`- User ${u.email} (missing)`); continue; }
+  erp.insert('User', { ...u, user_type: 'System User', send_welcome_email: 0, enabled: 1 });
+  console.log(`+ User ${u.email}`);
 }

@@ -74,13 +74,19 @@ module.exports = {
         const dl = h.page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
         await h.click(go, { after: 800 });
         const f = await dl; if (f) await f.delete().catch(() => {});
+        // The browser's own "Download started" bar is not part of the ERP: hide it.
+        await h.page.evaluate(() => document.querySelectorAll('.desk-alert, .alert-container .alert, .toast-container .toast').forEach(e => { if (/download/i.test(e.innerText)) e.remove(); })).catch(() => {});
       },
     },
     {
       say: 'To keep this layout, save it from the menu with Save As, and give the report a name. It then appears under Select Report next time.',
       async run(h, at) {
         await h.press('Escape'); await h.sleep(300);
-        await at(2.0); await h.highlight(h.page.locator('button:visible:has-text("Select Report")').first(), 3000, 6);
+        const menu = h.page.locator('.page-actions button.icon-btn:visible, .page-actions .menu-btn-group button:visible').last();
+        await at(1.6); await h.click(menu, { after: 700 });
+        await at(3.0); await h.highlight(h.page.locator('.dropdown-menu.show a:visible', { hasText: 'Save As' }).first(), 2400, 4);
+        await at(5.6); await h.press('Escape'); await h.sleep(300);
+        await at(6.4); await h.highlight(h.page.locator('button:visible:has-text("Select Report")').first(), 2600, 6);
       },
     },
     {
