@@ -255,6 +255,22 @@ function makeHelpers(page) {
     async type(text, delay = 75) { await page.keyboard.type(text, { delay }); },
     async press(key) { await page.keyboard.press(key); },
     // Draws an amber box around an element for `ms` milliseconds.
+    // "Best practice" banner across the top of the screen (beige house style), for `ms` milliseconds.
+    async tip(text, ms = 4500, label = 'Best practice') {
+      await page.evaluate(({ text, ms, label }) => {
+        document.getElementById('__tip')?.remove();
+        const d = document.createElement('div'); d.id = '__tip';
+        Object.assign(d.style, { position: 'fixed', top: '18px', left: '50%', transform: 'translate(-50%,-12px)', zIndex: 2147483644, pointerEvents: 'none',
+          background: '#F5F4EF', color: '#1C1C1A', border: '2px solid #456B40', borderRadius: '12px', padding: '14px 26px', maxWidth: '1100px',
+          boxShadow: '0 8px 30px rgba(0,0,0,.18)', font: "500 26px/1.35 Inter, 'DejaVu Sans', sans-serif", opacity: '0', transition: 'opacity .35s, transform .35s' });
+        const b = document.createElement('div'); b.textContent = label.toUpperCase();
+        Object.assign(b.style, { font: "700 16px Inter, sans-serif", letterSpacing: '3px', color: '#456B40', marginBottom: '6px' });
+        const t = document.createElement('div'); t.textContent = text;
+        d.append(b, t); document.documentElement.appendChild(d);
+        requestAnimationFrame(() => { d.style.opacity = '1'; d.style.transform = 'translate(-50%,0)'; });
+        setTimeout(() => { d.style.opacity = '0'; setTimeout(() => d.remove(), 400); }, ms);
+      }, { text, ms, label });
+    },
     async highlight(sel, ms = 2500, pad = 6) {
       const l = h.loc(sel);
       await l.scrollIntoViewIfNeeded().catch(() => {});
@@ -437,6 +453,7 @@ async function main() {
     try {
       if (sc.notice) await h.showCard(cards.noticeHTML(meta));
       else if (sc.card) await h.showCard(cards.cardHTML(sc.card, meta));
+      else if (sc.chain) await h.showCard(cards.chainHTML(sc.chain, meta));
       else await h.hideCard();
       if (sc.run) await sc.run(h, at);
     } catch (e) {
@@ -478,7 +495,7 @@ async function main() {
   // 7) final mix
   const outFile = path.join(ROOT, 'out', `${spec.code} v${meta.version} - ${spec.title}${meta.release ? '' : ' (DRAFT)'}.mp4`);
   // Corner watermark over the ERP footage (not over the cards).
-  const firstLive = timeline.find(t => !t.sc.card && !t.sc.notice), lastCard = [...timeline].reverse().find(t => t.sc.card);
+  const firstLive = timeline.find(t => !t.sc.card && !t.sc.notice && !t.sc.chain), lastCard = [...timeline].reverse().find(t => t.sc.card);
   const wmFrom = firstLive ? firstLive.start : 0, wmTo = lastCard && lastCard.start > wmFrom ? lastCard.start : total;
   const wmText = `HCC · CONFIDENTIAL · EMPLOYEES ONLY · ${spec.code} v${meta.version}${meta.release ? '' : ' DRAFT'}`.replace(/[:'\\%]/g, '');
   const watermark = `drawtext=fontfile=${FONT}:text='${wmText}':fontsize=17:fontcolor=white@0.95:box=1:boxcolor=0x0f1b2d@0.55:boxborderw=8:x=w-tw-28:y=h-th-104:enable='between(t,${wmFrom.toFixed(2)},${wmTo.toFixed(2)})'`;

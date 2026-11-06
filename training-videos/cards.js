@@ -162,10 +162,32 @@ const split = {
   },
 };
 
+// Document chain diagram (paper style): boxes left to right, arrows between, optional side links.
+// chain = { title, sub, steps: [{ doc, note }], links: [{ from, to, label }] }  (links drawn below the row)
+function chainHTML(c, m) {
+  const steps = c.steps.map((s, i) => `<div class="st${s.hl ? ' hl' : ''}"><b>${esc(s.doc)}</b><span>${esc(s.note || '')}</span></div>${i < c.steps.length - 1 ? '<div class="ar">→</div>' : ''}`).join('');
+  const links = (c.links || []).map(l => `<div class="lk"><b>${esc(l.doc)}</b> ← linked to <b>${esc(l.to)}</b><span>${esc(l.note || '')}</span></div>`).join('');
+  return page(`
+    body{background:${T.paper};color:${T.ink}}
+    img{position:absolute;left:120px;top:84px;height:96px}
+    .k{position:absolute;left:120px;top:250px;font-size:26px;font-weight:600;letter-spacing:4px;color:${T.green};text-transform:uppercase}
+    h1{position:absolute;left:120px;right:120px;top:292px;margin:0;font-size:64px;line-height:1.08;font-weight:700;letter-spacing:-1px}
+    .row{position:absolute;left:120px;right:120px;top:470px;display:flex;align-items:stretch;gap:0}
+    .st{flex:1;background:#fff;border:2px solid ${T.line};border-radius:14px;padding:22px 18px;display:flex;flex-direction:column;gap:10px;min-height:150px}
+    .st.hl{border-color:${T.green};box-shadow:0 0 0 4px rgba(69,107,64,.15)}
+    .st b{font-size:28px;font-weight:700}.st span{font-size:20px;color:${T.muted};line-height:1.35}
+    .ar{align-self:center;font-size:44px;color:${T.green};padding:0 14px;font-weight:700}
+    .links{position:absolute;left:120px;right:120px;top:690px;display:flex;gap:28px}
+    .lk{flex:1;border-left:4px solid ${T.green};padding:6px 0 6px 18px;font-size:24px}.lk span{display:block;font-size:19px;color:${T.muted};margin-top:6px}
+    .f{position:absolute;left:120px;right:120px;top:930px;padding-top:18px;border-top:1px solid ${T.line};font-size:18px;color:${T.muted}}`,
+    `<img src="${LOGO}"><div class="k">${esc(c.kicker || 'Best practice')}</div><h1>${esc(c.title)}</h1><div class="row">${steps}</div>${links ? `<div class="links">${links}</div>` : ''}<div class="f">${esc(footerLine(m))}</div>`);
+}
+
 const THEMES = { paper, green, split };
 const theme = () => THEMES[process.env.CARD_THEME || 'paper'] || paper;
 module.exports = {
   THEMES, COMPANY, footerLine,
+  chainHTML,
   noticeHTML: m => theme().notice(m),
   cardHTML: (c, m) => theme().card(c, m),
 };
