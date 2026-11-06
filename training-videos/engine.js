@@ -369,10 +369,17 @@ async function main() {
   if (fs.existsSync(lock)) {
     const pid = parseInt(fs.readFileSync(lock, 'utf8'), 10);
     let alive = false; try { process.kill(pid, 0); alive = true; } catch (e) { /* stale */ }
-    if (alive) throw new Error(`Display ${DISPLAY} is in use by another recording (pid ${pid}). Wait for it, or set REC_DISPLAY=:100.`);
+    if (alive) {
+      // A display server with no recording attached is a leftover from a run that crashed: remove it.
+      const owner = (() => { try { return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' '); } catch (e) { return ''; } })();
+      const busy = (() => { try { return execFileSync('pgrep', ['-f', 'x11grab.*' + DISPLAY]).toString().trim(); } catch (e) { return ''; } })();
+      if (/^Xvfb /.test(owner) && !busy) { console.warn(`  ! removing leftover display ${DISPLAY} (pid ${pid}) from an earlier run`); process.kill(pid); await sleep(800); }
+      else throw new Error(`Display ${DISPLAY} is in use by another recording (pid ${pid}). Wait for it, or set REC_DISPLAY=:100.`);
+    }
     fs.unlinkSync(lock);
   }
   const xvfb = spawn('Xvfb', [DISPLAY, '-screen', '0', `${W}x${H}x24`, '-nolisten', 'tcp'], { stdio: 'ignore' });
+  process.on('exit', () => { try { xvfb.kill(); } catch (e) { /* already gone */ } });
   await sleep(1200);
   const browser = await chromium.launch({
     headless: false, env: { ...process.env, DISPLAY },
