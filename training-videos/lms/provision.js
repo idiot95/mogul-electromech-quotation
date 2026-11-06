@@ -78,6 +78,9 @@ function main() {
       if (chapter) chapterRefs.push({ chapter: chapter.name });
     }
     if (APPLY && course) erp.update('LMS Course', course.name, { chapters: chapterRefs });
+    // Learning recounts a course's lessons when a chapter is saved, so save them once more now
+    // that the course lists its chapters (otherwise the course card shows 0 lessons).
+    if (APPLY && course) for (const c of chapterRefs) erp.update('Course Chapter', c.chapter, {});
   }
   console.log(`${APPLY ? 'Created' : 'Would create'}: ${plan.courses} courses, ${plan.chapters} chapters, ${plan.lessons} lessons.`);
 }
