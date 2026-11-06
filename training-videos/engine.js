@@ -436,10 +436,18 @@ async function main() {
     saved[dt] = await page.evaluate(async d => (await (await fetch('/api/method/frappe.model.utils.user_settings.get?doctype=' + encodeURIComponent(d))).json()).message, dt);
   }
   const tidyUp = async () => {
-    for (const [dt, v] of Object.entries(saved)) {
-      await page.evaluate(async ([d, us]) => fetch('/api/method/frappe.model.utils.user_settings.save', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': window.frappe?.csrf_token || '' }, body: JSON.stringify({ doctype: d, user_settings: us || '{}' }) }), [dt, v]).catch(e => console.warn(`  ! could not restore ${dt} list settings: ${e.message}`));
-    }
     if (spec.cleanup) await spec.cleanup(h).catch(e => console.warn(`  ! cleanup failed: ${e.message}`));
+    if (Object.keys(saved).length) {
+      // Leave the desk first: it writes its in-memory list settings back when the page unloads,
+      // which would undo the restore. The save merges keys, so always send last_view too.
+      const csrf = await page.evaluate(() => window.frappe?.csrf_token || '').catch(() => '');
+      await page.goto(BASE + '/api/method/ping', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      for (const [dt, v] of Object.entries(saved)) {
+        let us = {}; try { us = JSON.parse(v || '{}') || {}; } catch {}
+        if (!us.last_view) us.last_view = 'List';
+        await page.evaluate(async ([d, us, t]) => { const r = await fetch('/api/method/frappe.model.utils.user_settings.save', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': t }, body: JSON.stringify({ doctype: d, user_settings: JSON.stringify(us) }) }); if (!r.ok) throw new Error('HTTP ' + r.status); }, [dt, us, csrf]).catch(e => console.warn(`  ! could not restore ${dt} list settings: ${e.message}`));
+      }
+    }
     if (Object.keys(saved).length || spec.cleanup) console.log(`  restored list settings (${Object.keys(saved).join(', ') || 'none'}) and ran cleanup`);
   };
   if (spec.warmup) await spec.warmup(h); // load caches off-camera

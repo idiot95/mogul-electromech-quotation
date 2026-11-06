@@ -5,9 +5,9 @@ module.exports = {
   code: 'F4',
   title: 'Report view: group, sort and export to Excel',
   version: '1.0',
-  start: '/desk/sales-order',
+  start: '/desk/sales-order/view/list',
   keepSettings: ['Sales Order'],
-  async warmup(h) { await h.go('/desk/sales-order'); },
+  async warmup(h) { await h.go('/desk/sales-order/view/list'); },
   scenes: [
     {
       card: { kicker: 'F4 · Foundations', title: 'Report view: group, sort and export to Excel', sub: 'Turn any list into a table you can analyse · 3 minutes' },
@@ -71,9 +71,14 @@ module.exports = {
         await at(0.6); await h.highlight(dlg.locator('.modal-content').first(), 3200, 4);
         const go = dlg.locator('button.btn-primary:visible').first();
         await at(6.6); await h.moveTo(go); await h.sleep(300);
-        const dl = h.page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
+        // Answer the export request with "no content": nothing is downloaded, so Chrome shows no
+        // "Download started" bar in fullscreen. The ERP request itself is the real one.
+        let hit = false;
+        await h.page.route(/export_query/, r => { hit = true; return r.fulfill({ status: 204, body: '' }); });
         await h.click(go, { after: 800 });
-        const f = await dl; if (f) await f.delete().catch(() => {});
+        await h.page.waitForFunction(() => !document.querySelector('.modal.show'), null, { timeout: 8000 }).catch(() => {});
+        await h.page.unroute(/export_query/);
+        if (!hit) console.log('[F4] ! export request not seen');
       },
     },
     {
@@ -82,8 +87,8 @@ module.exports = {
         await h.press('Escape'); await h.sleep(300);
         const menu = h.page.locator('.page-actions button.icon-btn:visible, .page-actions .menu-btn-group button:visible').last();
         await at(1.6); await h.click(menu, { after: 700 });
-        await at(3.0); await h.highlight(h.page.locator('.dropdown-menu.show a:visible', { hasText: 'Save As' }).first(), 2400, 4);
-        await at(5.6); await h.press('Escape'); await h.sleep(300);
+        await at(3.0); await h.highlight(h.page.locator('.dropdown-menu.show a:visible', { hasText: 'Save As' }).first(), 2000, 4);
+        await at(5.8); await h.press('Escape'); await h.sleep(300);
         await at(6.4); await h.highlight(h.page.locator('button:visible:has-text("Select Report")').first(), 2600, 6);
       },
     },
