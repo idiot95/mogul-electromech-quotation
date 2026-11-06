@@ -158,19 +158,21 @@ function makeHelpers(page) {
       if (now.replace(/\/$/, '') !== route.replace(/\/$/, '')) throw new Error(`navigation to ${route} ended at ${now}`);
     },
     // Wait until the page has finished loading: network quiet, no skeletons or "Loading..." text.
-    async ready(max = 12000) {
-      const end = Date.now() + max;
+    async ready(max = 8000) {
+      const t0 = Date.now(), end = t0 + max;
       await page.waitForLoadState('networkidle', { timeout: max }).catch(() => {});
       while (Date.now() < end) {
         const busy = await page.evaluate(() => {
           const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
-          if ([...document.querySelectorAll('[class*=skeleton],[class*=placeholder],.splash,#freeze')].some(vis)) return true;
+          // Only real loading indicators: skeleton/shimmer blocks, the boot splash, the freeze overlay.
+          if ([...document.querySelectorAll('[class*=skeleton],[class*=shimmer],.splash,#freeze')].some(vis)) return true;
           return [...document.querySelectorAll('body *')].some(e => e.children.length === 0 && /^Loading\.*$/.test(e.textContent.trim()) && vis(e));
         }).catch(() => true);
         if (!busy) break;
         await sleep(150);
       }
-      await sleep(400);
+      if (Date.now() >= end) console.warn(`  ! page still loading after ${max / 1000}s: ${page.url()} (check this scene's frames)`);
+      await sleep(300);
     },
     // Run an action that changes the screen (route change, Enter in search, a click that opens
     // a page) under a still of the current screen, then reveal the loaded result.
