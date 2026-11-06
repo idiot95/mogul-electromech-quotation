@@ -88,7 +88,7 @@ module.exports = {
         await at(3.2); await h.press('Control+k');
         await at(5.0); await h.press('Control+a'); await h.type('sales desk', 110);
         await at(7.4); await pick(h, /Sales Desk\s*Workspace/);
-        if (!/sales-desk/.test(h.page.url())) throw new Error('search did not open the Sales Desk: ' + h.page.url());
+        if (!/sales-desk|Sales Desk/i.test(decodeURIComponent(h.page.url()))) throw new Error('search did not open the Sales Desk: ' + h.page.url());
         await h.sleep(600); await privacy(h);
       },
     },
