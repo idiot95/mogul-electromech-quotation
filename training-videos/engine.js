@@ -138,6 +138,14 @@ const INIT = `(() => {
 // ---------- helpers handed to each scene ----------
 function makeHelpers(page) {
   let cur = { x: 960, y: 540 };
+  // Track in-flight requests ourselves: Playwright's 'networkidle' only covers full page loads,
+  // not the background requests an in-app (SPA) navigation makes.
+  const inflight = new Set(); let lastNet = Date.now();
+  const skip = r => /\.(png|jpe?g|svg|woff2?|ico)(\?|$)/.test(r.url()) || r.url().startsWith('data:');
+  page.on('request', r => { if (!skip(r)) { inflight.add(r); lastNet = Date.now(); } });
+  const done = r => { if (inflight.delete(r)) lastNet = Date.now(); };
+  page.on('requestfinished', done); page.on('requestfailed', done);
+  const netQuiet = async (quietMs, max) => { const end = Date.now() + max; while (Date.now() < end && (inflight.size || Date.now() - lastNet < quietMs)) await sleep(80); };
   const h = {
     page, BASE,
     sleep,
@@ -161,6 +169,7 @@ function makeHelpers(page) {
     async ready(max = 8000) {
       const t0 = Date.now(), end = t0 + max;
       await page.waitForLoadState('networkidle', { timeout: max }).catch(() => {});
+      await netQuiet(500, max);
       while (Date.now() < end) {
         const busy = await page.evaluate(() => {
           const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
