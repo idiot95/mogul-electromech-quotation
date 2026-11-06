@@ -74,8 +74,6 @@ module.exports = {
         const dl = h.page.waitForEvent('download', { timeout: 15000 }).catch(() => null);
         await h.click(go, { after: 800 });
         const f = await dl; if (f) await f.delete().catch(() => {});
-        // The browser's own "Download started" bar is not part of the ERP: hide it.
-        await h.page.evaluate(() => document.querySelectorAll('.desk-alert, .alert-container .alert, .toast-container .toast').forEach(e => { if (/download/i.test(e.innerText)) e.remove(); })).catch(() => {});
       },
     },
     {

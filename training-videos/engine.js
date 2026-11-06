@@ -400,7 +400,7 @@ async function main() {
   const browser = await chromium.launch({
     headless: false, env: { ...process.env, DISPLAY },
     ignoreDefaultArgs: ['--enable-automation'],
-    args: ['--kiosk', `--window-size=${W},${H}`, '--window-position=0,0', '--force-device-scale-factor=1', '--disable-infobars', '--no-first-run', '--hide-crash-restore-bubble'],
+    args: ['--kiosk', `--window-size=${W},${H}`, '--window-position=0,0', '--force-device-scale-factor=1', '--disable-infobars', '--no-first-run', '--hide-crash-restore-bubble', '--disable-features=DownloadBubble,DownloadBubbleV2,DownloadShelf'],
   });
   const context = await browser.newContext({ viewport: null, acceptDownloads: true });
   await context.addInitScript(INIT);
