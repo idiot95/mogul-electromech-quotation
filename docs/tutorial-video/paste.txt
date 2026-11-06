@@ -1,0 +1,9 @@
+ENQUIRY NO: SSD2600041				
+S.No	Part No.	Description	Make	Qty	UOM
+		MOTOR SPARES				
+1	CB-2532	Carbon brush 25 x 32 x 60 mm	Hatim Carbon	60	Nos
+2	BH-3800	Brush holder for TECO motor 3800 kW	TECO	12	Nos
+3	SKF-6316	Bearing 6316 C3	SKF	4	Nos
+		CONVEYOR SPARES				
+4		V-Belt B-52	Fenner	24	Nos
+5		Copper braided flexible 50 sqmm		30	Mtrs
