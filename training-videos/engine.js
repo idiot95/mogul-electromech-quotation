@@ -1,6 +1,6 @@
 // ERP training video engine.
 // Drives a real Chromium window on a virtual X display, captures it with ffmpeg,
-// voices each scene with Piper TTS, then mixes narration + burned-in captions.
+// voices each scene (Piper offline, or ElevenLabs / Azure), then mixes narration + burned-in captions.
 //
 // Usage: node training-videos/engine.js training-videos/scripts/F1.js
 'use strict';
@@ -26,13 +26,48 @@ const PRIVACY_CSS = [
 ].join(',') + '{filter:blur(6px)!important}';
 
 // ---------- narration ----------
-function tts(text, cacheDir) {
-  const key = crypto.createHash('sha1').update(VOICE + '|' + text).digest('hex').slice(0, 16);
-  const out = path.join(cacheDir, key + '.wav');
-  if (!fs.existsSync(out)) {
+// TTS_PROVIDER = piper (offline, default) | elevenlabs | azure
+//   elevenlabs: ELEVEN_VOICE_ID (default: a calm narrator voice), ELEVEN_MODEL (default eleven_multilingual_v2)
+//   azure:      AZURE_TTS_REGION (e.g. centralindia), AZURE_VOICE (default en-IN-NeerjaNeural)
+// API keys are never read here: the cloud session's network proxy adds them to the request.
+// Elsewhere, set ELEVEN_API_KEY / AZURE_TTS_KEY.
+const PROVIDER = process.env.TTS_PROVIDER || 'piper';
+function voiceId() {
+  if (PROVIDER === 'elevenlabs') return 'el:' + (process.env.ELEVEN_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb') + ':' + (process.env.ELEVEN_MODEL || 'eleven_multilingual_v2');
+  if (PROVIDER === 'azure') return 'az:' + (process.env.AZURE_VOICE || 'en-IN-NeerjaNeural');
+  return 'piper:' + VOICE;
+}
+function synth(text, out) {
+  if (PROVIDER === 'piper') {
     execFileSync(PIPER, ['-m', VOICE, '-f', out, '--length_scale', '1.05', '--sentence_silence', '0.35'],
       { input: text, stdio: ['pipe', 'ignore', 'ignore'] });
+    return;
   }
+  const mp3 = out.replace(/\.wav$/, '.mp3');
+  let args;
+  if (PROVIDER === 'elevenlabs') {
+    const [, id, model] = voiceId().split(':');
+    args = ['-sS', '--fail-with-body', '-o', mp3, '-X', 'POST',
+      `https://api.elevenlabs.io/v1/text-to-speech/${id}?output_format=mp3_44100_128`,
+      '-H', `xi-api-key: ${process.env.ELEVEN_API_KEY || 'injected-by-proxy'}`, '-H', 'Content-Type: application/json',
+      '-d', JSON.stringify({ text, model_id: model, voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.15, use_speaker_boost: true } })];
+  } else if (PROVIDER === 'azure') {
+    const voice = voiceId().slice(3), lang = voice.split('-').slice(0, 2).join('-');
+    const esc = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    args = ['-sS', '--fail-with-body', '-o', mp3, '-X', 'POST',
+      `https://${process.env.AZURE_TTS_REGION || 'centralindia'}.tts.speech.microsoft.com/cognitiveservices/v1`,
+      '-H', `Ocp-Apim-Subscription-Key: ${process.env.AZURE_TTS_KEY || 'injected-by-proxy'}`,
+      '-H', 'Content-Type: application/ssml+xml', '-H', 'X-Microsoft-OutputFormat: audio-24khz-96kbitrate-mono-mp3',
+      '-d', `<speak version="1.0" xml:lang="${lang}"><voice name="${voice}"><prosody rate="-4%">${esc}</prosody></voice></speak>`];
+  } else throw new Error('Unknown TTS_PROVIDER ' + PROVIDER);
+  execFileSync('curl', args, { stdio: ['ignore', 'ignore', 'inherit'] });
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', mp3, '-ar', '44100', '-ac', '1', out]);
+  fs.unlinkSync(mp3);
+}
+function tts(text, cacheDir) {
+  const key = crypto.createHash('sha1').update(voiceId() + '|' + text).digest('hex').slice(0, 16);
+  const out = path.join(cacheDir, key + '.wav');
+  if (!fs.existsSync(out)) synth(text, out);
   const dur = parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', out]).toString());
   return { file: out, dur };
 }
@@ -177,7 +212,7 @@ function captionChunks(text) {
 async function main() {
   const scriptPath = path.resolve(process.argv[2]);
   const spec = require(scriptPath);
-  if (!VOICE) throw new Error('Set PIPER_VOICE to a Piper .onnx voice file');
+  if (PROVIDER === 'piper' && !VOICE) throw new Error('Set PIPER_VOICE to a Piper .onnx voice file');
   const cache = path.join(ROOT, '.cache'); fs.mkdirSync(cache, { recursive: true });
   const work = path.join(ROOT, 'out', spec.code); fs.mkdirSync(work, { recursive: true });
 
