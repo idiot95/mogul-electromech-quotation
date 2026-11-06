@@ -392,6 +392,19 @@ async function main() {
   await cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'fullscreen' } });
   await sleep(800);
   const h = makeHelpers(page);
+  // Recording changes per-user list settings (filters, sort): save them now, put them back after.
+  await page.goto(BASE + '/desk', { waitUntil: 'domcontentloaded' });
+  const saved = {};
+  for (const dt of spec.keepSettings || []) {
+    saved[dt] = await page.evaluate(async d => (await (await fetch('/api/method/frappe.model.utils.user_settings.get?doctype=' + encodeURIComponent(d))).json()).message, dt);
+  }
+  const tidyUp = async () => {
+    for (const [dt, v] of Object.entries(saved)) {
+      await page.evaluate(async ([d, us]) => fetch('/api/method/frappe.model.utils.user_settings.save', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': window.frappe?.csrf_token || '' }, body: JSON.stringify({ doctype: d, user_settings: us || '{}' }) }), [dt, v]).catch(e => console.warn(`  ! could not restore ${dt} list settings: ${e.message}`));
+    }
+    if (spec.cleanup) await spec.cleanup(h).catch(e => console.warn(`  ! cleanup failed: ${e.message}`));
+    if (Object.keys(saved).length || spec.cleanup) console.log(`  restored list settings (${Object.keys(saved).join(', ') || 'none'}) and ran cleanup`);
+  };
   if (spec.warmup) await spec.warmup(h); // load caches off-camera
   // Open the ERP where the first live scene starts, off camera, so no loading screen is ever filmed.
   await page.goto(BASE + (spec.start || '/desk'), { waitUntil: 'domcontentloaded' });
@@ -422,7 +435,7 @@ async function main() {
     } catch (e) {
       console.error(`scene ${i} failed:`, e.message);
       await page.screenshot({ path: path.join(work, `fail-${i}.png`) }).catch(() => {});
-      ff.stdin.write('q'); await browser.close().catch(() => {}); xvfb.kill();
+      ff.stdin.write('q'); await tidyUp(); await browser.close().catch(() => {}); xvfb.kill();
       throw e;
     }
     const minEnd = t0 + (sc.audio.dur + (sc.pad ?? 0.6)) * 1000;
@@ -432,6 +445,7 @@ async function main() {
   const total = (Date.now() - tSync) / 1000 + 0.8;
   await sleep(1000);
   ff.stdin.write('q'); await new Promise(r => ff.on('close', r));
+  await tidyUp();
   await browser.close(); xvfb.kill();
 
   // 5) find the notice card's first frame (black -> white card is the first scene cut)
