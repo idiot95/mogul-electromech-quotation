@@ -21,8 +21,8 @@ const MASTERS = [
 
 // Items are numbered automatically (ST…), so they are found by item name, customers by name.
 // A user to assign to and @mention in videos, so no real colleague is named or notified.
-// No roles and no password: nobody can sign in as it.
-const USERS = [{ email: 'demo.trainee@hatimcarbon.com', first_name: 'DEMO', last_name: 'Trainee' }];
+// No password: nobody can sign in as it. Sales User lets documents be assigned to it without a share pop-up.
+const USERS = [{ email: 'demo.trainee@hatimcarbon.com', first_name: 'DEMO', last_name: 'Trainee', roles: ['Sales User'] }];
 
 // A submitted default BOM for the demo carbon brush (1 brush from 1 carbon block). A BOM posts
 // nothing to accounts or stock; it lets videos show choosing a BOM on a Sales Order and a Work Order.
@@ -50,8 +50,14 @@ for (const b of BOMS) {
 }
 
 for (const u of USERS) {
-  if (erp.list('User', [['name', '=', u.email]]).length) { console.log(`= User ${u.email}`); continue; }
+  const roles = u.roles.map(role => ({ role }));
+  if (erp.list('User', [['name', '=', u.email]]).length) {
+    const have = erp.get('User', u.email).roles || [], missing = u.roles.filter(r => !have.some(x => x.role === r));
+    if (missing.length && !list) { erp.update('User', u.email, { roles: [...have.map(x => ({ role: x.role })), ...missing.map(role => ({ role }))] }); console.log(`~ User ${u.email}: added ${missing.join(', ')}`); }
+    else console.log(`= User ${u.email}`);
+    continue;
+  }
   if (list) { console.log(`- User ${u.email} (missing)`); continue; }
-  erp.insert('User', { ...u, user_type: 'System User', send_welcome_email: 0, enabled: 1 });
+  erp.insert('User', { ...u, roles, user_type: 'System User', send_welcome_email: 0, enabled: 1 });
   console.log(`+ User ${u.email}`);
 }
