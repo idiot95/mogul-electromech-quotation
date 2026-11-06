@@ -376,7 +376,7 @@ async function main() {
       if (/^Xvfb /.test(owner) && !busy) { console.warn(`  ! removing leftover display ${DISPLAY} (pid ${pid}) from an earlier run`); process.kill(pid); await sleep(800); }
       else throw new Error(`Display ${DISPLAY} is in use by another recording (pid ${pid}). Wait for it, or set REC_DISPLAY=:100.`);
     }
-    fs.unlinkSync(lock);
+    fs.rmSync(lock, { force: true });
   }
   const xvfb = spawn('Xvfb', [DISPLAY, '-screen', '0', `${W}x${H}x24`, '-nolisten', 'tcp'], { stdio: 'ignore' });
   process.on('exit', () => { try { xvfb.kill(); } catch (e) { /* already gone */ } });
