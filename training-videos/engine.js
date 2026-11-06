@@ -208,7 +208,7 @@ function makeHelpers(page) {
       const shot = (await page.screenshot({ type: 'jpeg', quality: 92 })).toString('base64');
       await page.evaluate(src => {
         const d = document.createElement('div'); d.id = '__still';
-        Object.assign(d.style, { position: 'fixed', inset: 0, zIndex: 2147483600, background: `url(data:image/jpeg;base64,${src}) 0 0/100% 100%`, transition: 'opacity .3s' });
+        Object.assign(d.style, { position: 'fixed', inset: 0, zIndex: 2147483600, pointerEvents: 'none', background: `url(data:image/jpeg;base64,${src}) 0 0/100% 100%`, transition: 'opacity .3s' });
         document.documentElement.appendChild(d);
       }, shot);
       await action();
