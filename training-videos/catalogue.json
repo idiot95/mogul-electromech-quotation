@@ -1,0 +1,660 @@
+{
+ "updated": "2026-11-06",
+ "tracks": [
+  {
+   "prefix": "F",
+   "title": "Foundations",
+   "desks": "All desks"
+  },
+  {
+   "prefix": "S",
+   "title": "Sales & CRM",
+   "desks": "Sales Desk"
+  },
+  {
+   "prefix": "P",
+   "title": "Purchase",
+   "desks": "Purchase Desk"
+  },
+  {
+   "prefix": "ST",
+   "title": "Stock & Dispatch",
+   "desks": "Sales Desk, Purchase Desk, Production Desk"
+  },
+  {
+   "prefix": "M",
+   "title": "Manufacturing",
+   "desks": "Production Desk"
+  },
+  {
+   "prefix": "Q",
+   "title": "Quality & ISO",
+   "desks": "Operations Desk"
+  },
+  {
+   "prefix": "A",
+   "title": "Assets & Support",
+   "desks": "Production Desk, Operations Desk"
+  },
+  {
+   "prefix": "H",
+   "title": "HR & People",
+   "desks": "Management Desk"
+  },
+  {
+   "prefix": "MG",
+   "title": "Management & Admin",
+   "desks": "Management Desk"
+  }
+ ],
+ "videos": [
+  {
+   "code": "F1",
+   "title": "Log in, find your desk and move around the ERP",
+   "track": "Foundations",
+   "audience": "Everyone",
+   "minutes": 4,
+   "wave": 1
+  },
+  {
+   "code": "F2",
+   "title": "Search bar, list views, filters and saved views",
+   "track": "Foundations",
+   "audience": "Everyone",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "F3",
+   "title": "Create, save, submit, cancel and amend a document",
+   "track": "Foundations",
+   "audience": "Everyone",
+   "minutes": 6,
+   "wave": 1
+  },
+  {
+   "code": "F4",
+   "title": "Report view: group, sort and export to Excel",
+   "track": "Foundations",
+   "audience": "Everyone",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "F5",
+   "title": "Assignments, ToDos, comments and @mentions",
+   "track": "Foundations",
+   "audience": "Everyone",
+   "minutes": 4,
+   "wave": 1
+  },
+  {
+   "code": "F6",
+   "title": "Print, download a PDF and email a document",
+   "track": "Foundations",
+   "audience": "Everyone",
+   "minutes": 3,
+   "wave": 1
+  },
+  {
+   "code": "F7",
+   "title": "Bulk upload with Data Import",
+   "track": "Foundations",
+   "audience": "Desk leads",
+   "minutes": 6,
+   "wave": 1
+  },
+  {
+   "code": "F8",
+   "title": "Raise an ERP Ticket when something is wrong",
+   "track": "Foundations",
+   "audience": "Everyone",
+   "minutes": 3,
+   "wave": 1
+  },
+  {
+   "code": "S1",
+   "title": "Leads and organizations in Frappe CRM",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "S2",
+   "title": "Work the deal pipeline",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "S3",
+   "title": "Customer master: addresses, contacts, GSTIN",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "S4",
+   "title": "Techno Commercial Review before quoting",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 6,
+   "wave": 1
+  },
+  {
+   "code": "S5",
+   "title": "Create a Quotation",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 7,
+   "wave": 1
+  },
+  {
+   "code": "S6",
+   "title": "Revise a Quotation; read the Quotation Conversion Ratio",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "S7",
+   "title": "Convert a Quotation into a Sales Order",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "S8",
+   "title": "Record a customer PO amendment",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 4,
+   "wave": 1
+  },
+  {
+   "code": "S9",
+   "title": "Unattended Sales Orders and Sales Order Analysis",
+   "track": "Sales & CRM",
+   "audience": "Sales, Management",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "S10",
+   "title": "Annual Sales Targets and band-wise target vs actual",
+   "track": "Sales & CRM",
+   "audience": "Sales, Management",
+   "minutes": 6,
+   "wave": 3
+  },
+  {
+   "code": "S11",
+   "title": "Log customer Quality Feedback",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 3,
+   "wave": 3
+  },
+  {
+   "code": "S12",
+   "title": "Flow: customer enquiry to confirmed order",
+   "track": "Sales & CRM",
+   "audience": "Sales",
+   "minutes": 12,
+   "wave": 1
+  },
+  {
+   "code": "P1",
+   "title": "Supplier master and the Supplier Approval Queue",
+   "track": "Purchase",
+   "audience": "Purchase",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "P2",
+   "title": "Vendor categorization",
+   "track": "Purchase",
+   "audience": "Purchase",
+   "minutes": 4,
+   "wave": 1
+  },
+  {
+   "code": "P3",
+   "title": "Supplier Evaluation with ISO templates",
+   "track": "Purchase",
+   "audience": "Purchase, Operations",
+   "minutes": 6,
+   "wave": 3
+  },
+  {
+   "code": "P4",
+   "title": "Raise a Material Request",
+   "track": "Purchase",
+   "audience": "Everyone who requests material",
+   "minutes": 4,
+   "wave": 1
+  },
+  {
+   "code": "P5",
+   "title": "Send an RFQ and compare Supplier Quotations",
+   "track": "Purchase",
+   "audience": "Purchase",
+   "minutes": 6,
+   "wave": 1
+  },
+  {
+   "code": "P6",
+   "title": "Create a Purchase Order",
+   "track": "Purchase",
+   "audience": "Purchase",
+   "minutes": 6,
+   "wave": 1
+  },
+  {
+   "code": "P7",
+   "title": "Track incoming material and the PO delivery schedule",
+   "track": "Purchase",
+   "audience": "Purchase",
+   "minutes": 5,
+   "wave": 1
+  },
+  {
+   "code": "P8",
+   "title": "Overdue POs and Purchase Analytics",
+   "track": "Purchase",
+   "audience": "Purchase, Management",
+   "minutes": 4,
+   "wave": 1
+  },
+  {
+   "code": "P9",
+   "title": "Receive goods: Purchase Receipt with inspection",
+   "track": "Purchase",
+   "audience": "Purchase, Stores",
+   "minutes": 6,
+   "wave": 1
+  },
+  {
+   "code": "P10",
+   "title": "Flow: Material Request to stock received",
+   "track": "Purchase",
+   "audience": "Purchase",
+   "minutes": 11,
+   "wave": 1
+  },
+  {
+   "code": "ST1",
+   "title": "Item master and Hatim Carbon item configuration",
+   "track": "Stock & Dispatch",
+   "audience": "Everyone",
+   "minutes": 7,
+   "wave": 2
+  },
+  {
+   "code": "ST2",
+   "title": "Warehouses, stock balance and Group wise stock list",
+   "track": "Stock & Dispatch",
+   "audience": "Stores, Production",
+   "minutes": 5,
+   "wave": 2
+  },
+  {
+   "code": "ST3",
+   "title": "Batches: create, track and trace",
+   "track": "Stock & Dispatch",
+   "audience": "Stores, Production",
+   "minutes": 5,
+   "wave": 2
+  },
+  {
+   "code": "ST4",
+   "title": "Stock Entry: issue, receipt and transfer",
+   "track": "Stock & Dispatch",
+   "audience": "Stores, Production",
+   "minutes": 6,
+   "wave": 2
+  },
+  {
+   "code": "ST5",
+   "title": "Stock Reconciliation",
+   "track": "Stock & Dispatch",
+   "audience": "Stores",
+   "minutes": 4,
+   "wave": 2
+  },
+  {
+   "code": "ST6",
+   "title": "Print stock labels",
+   "track": "Stock & Dispatch",
+   "audience": "Stores",
+   "minutes": 3,
+   "wave": 2
+  },
+  {
+   "code": "ST7",
+   "title": "Create a Delivery Note",
+   "track": "Stock & Dispatch",
+   "audience": "Sales, Stores",
+   "minutes": 5,
+   "wave": 2
+  },
+  {
+   "code": "ST8",
+   "title": "Packing Slip with inner and outer shipment boxes",
+   "track": "Stock & Dispatch",
+   "audience": "Stores",
+   "minutes": 5,
+   "wave": 2
+  },
+  {
+   "code": "ST9",
+   "title": "Shipments, the dispatch board and the Shipment Report",
+   "track": "Stock & Dispatch",
+   "audience": "Sales, Stores",
+   "minutes": 6,
+   "wave": 2
+  },
+  {
+   "code": "ST10",
+   "title": "Flow: Sales Order to dispatched goods",
+   "track": "Stock & Dispatch",
+   "audience": "Sales, Stores",
+   "minutes": 11,
+   "wave": 2
+  },
+  {
+   "code": "M1",
+   "title": "Build and update a BOM",
+   "track": "Manufacturing",
+   "audience": "Production",
+   "minutes": 7,
+   "wave": 2
+  },
+  {
+   "code": "M2",
+   "title": "Create a Work Order from a Sales Order",
+   "track": "Manufacturing",
+   "audience": "Production",
+   "minutes": 5,
+   "wave": 2
+  },
+  {
+   "code": "M3",
+   "title": "Plan with a Production Plan",
+   "track": "Manufacturing",
+   "audience": "Production",
+   "minutes": 6,
+   "wave": 2
+  },
+  {
+   "code": "M4",
+   "title": "Run Job Cards; read Job Cards by Operation",
+   "track": "Manufacturing",
+   "audience": "Production",
+   "minutes": 6,
+   "wave": 2
+  },
+  {
+   "code": "M5",
+   "title": "Transfer material for manufacture and finish goods",
+   "track": "Manufacturing",
+   "audience": "Production",
+   "minutes": 5,
+   "wave": 2
+  },
+  {
+   "code": "M6",
+   "title": "Read the plant floor 3D view",
+   "track": "Manufacturing",
+   "audience": "Production, Management",
+   "minutes": 3,
+   "wave": 2
+  },
+  {
+   "code": "M7",
+   "title": "Work Order Deliveries and Stock Projected Qty",
+   "track": "Manufacturing",
+   "audience": "Production, Sales",
+   "minutes": 4,
+   "wave": 2
+  },
+  {
+   "code": "M8",
+   "title": "Subcontracting Orders",
+   "track": "Manufacturing",
+   "audience": "Production",
+   "minutes": 6,
+   "wave": 4
+  },
+  {
+   "code": "M9",
+   "title": "Flow: Work Order to finished goods",
+   "track": "Manufacturing",
+   "audience": "Production",
+   "minutes": 12,
+   "wave": 2
+  },
+  {
+   "code": "Q1",
+   "title": "Incoming Quality Inspection and templates",
+   "track": "Quality & ISO",
+   "audience": "Operations, Stores",
+   "minutes": 6,
+   "wave": 3
+  },
+  {
+   "code": "Q2",
+   "title": "In-Process Inspection Queue and Inspection Status",
+   "track": "Quality & ISO",
+   "audience": "Operations, Production",
+   "minutes": 5,
+   "wave": 3
+  },
+  {
+   "code": "Q3",
+   "title": "QI Work Instructions and Test Methods",
+   "track": "Quality & ISO",
+   "audience": "Operations",
+   "minutes": 6,
+   "wave": 3
+  },
+  {
+   "code": "Q4",
+   "title": "Non Conformance and Quality Action",
+   "track": "Quality & ISO",
+   "audience": "Operations",
+   "minutes": 6,
+   "wave": 3
+  },
+  {
+   "code": "Q5",
+   "title": "Controlled Documents and revision history",
+   "track": "Quality & ISO",
+   "audience": "Operations, Management",
+   "minutes": 6,
+   "wave": 3
+  },
+  {
+   "code": "Q6",
+   "title": "Raise and approve a Document Change Request",
+   "track": "Quality & ISO",
+   "audience": "Everyone who owns a document",
+   "minutes": 5,
+   "wave": 3
+  },
+  {
+   "code": "Q7",
+   "title": "Internal Audit and Audit Findings",
+   "track": "Quality & ISO",
+   "audience": "Operations",
+   "minutes": 6,
+   "wave": 3
+  },
+  {
+   "code": "Q8",
+   "title": "Risk and Opportunity register",
+   "track": "Quality & ISO",
+   "audience": "Operations, Management",
+   "minutes": 5,
+   "wave": 3
+  },
+  {
+   "code": "Q9",
+   "title": "Interested parties, internal and external issues, legal requirements",
+   "track": "Quality & ISO",
+   "audience": "Management",
+   "minutes": 6,
+   "wave": 3
+  },
+  {
+   "code": "Q10",
+   "title": "Quality Meetings, the Compliance Dashboard and Compliance Gaps",
+   "track": "Quality & ISO",
+   "audience": "Management",
+   "minutes": 5,
+   "wave": 3
+  },
+  {
+   "code": "Q11",
+   "title": "Flow: failed inspection to corrective action",
+   "track": "Quality & ISO",
+   "audience": "Operations",
+   "minutes": 10,
+   "wave": 3
+  },
+  {
+   "code": "A1",
+   "title": "Asset register: descriptions and BOM information",
+   "track": "Assets & Support",
+   "audience": "Production, Operations",
+   "minutes": 5,
+   "wave": 3
+  },
+  {
+   "code": "A2",
+   "title": "Asset Maintenance Log and Maintenance Register",
+   "track": "Assets & Support",
+   "audience": "Production",
+   "minutes": 5,
+   "wave": 3
+  },
+  {
+   "code": "A3",
+   "title": "Log an Asset Repair",
+   "track": "Assets & Support",
+   "audience": "Production",
+   "minutes": 4,
+   "wave": 3
+  },
+  {
+   "code": "A4",
+   "title": "Support Issues",
+   "track": "Assets & Support",
+   "audience": "Operations",
+   "minutes": 4,
+   "wave": 3
+  },
+  {
+   "code": "H1",
+   "title": "Employee master",
+   "track": "HR & People",
+   "audience": "HR",
+   "minutes": 5,
+   "wave": 4
+  },
+  {
+   "code": "H2",
+   "title": "Employee Onboarding",
+   "track": "HR & People",
+   "audience": "HR, managers",
+   "minutes": 5,
+   "wave": 4
+  },
+  {
+   "code": "H3",
+   "title": "Recruitment: job openings and applicants",
+   "track": "HR & People",
+   "audience": "HR",
+   "minutes": 6,
+   "wave": 4
+  },
+  {
+   "code": "H4",
+   "title": "Training Events",
+   "track": "HR & People",
+   "audience": "HR, Management",
+   "minutes": 4,
+   "wave": 4
+  },
+  {
+   "code": "H5",
+   "title": "Leave and attendance (when switched on)",
+   "track": "HR & People",
+   "audience": "Everyone",
+   "minutes": 6,
+   "wave": 4
+  },
+  {
+   "code": "H6",
+   "title": "Expense claims and payroll (when switched on)",
+   "track": "HR & People",
+   "audience": "HR, Everyone",
+   "minutes": 7,
+   "wave": 4
+  },
+  {
+   "code": "MG1",
+   "title": "Management Desk tour and key reports",
+   "track": "Management & Admin",
+   "audience": "Management",
+   "minutes": 7,
+   "wave": 4
+  },
+  {
+   "code": "MG2",
+   "title": "Review Agent Actions proposed by the AI agents",
+   "track": "Management & Admin",
+   "audience": "Management, desk leads",
+   "minutes": 5,
+   "wave": 4
+  },
+  {
+   "code": "MG3",
+   "title": "Outlook add-in: assign emails and sync tasks",
+   "track": "Management & Admin",
+   "audience": "Everyone using Outlook",
+   "minutes": 5,
+   "wave": 4
+  },
+  {
+   "code": "MG4",
+   "title": "Users, roles and desk access settings",
+   "track": "Management & Admin",
+   "audience": "Admin",
+   "minutes": 6,
+   "wave": 4
+  },
+  {
+   "code": "MG5",
+   "title": "GST, e-Invoice and e-Waybill (India Compliance)",
+   "track": "Management & Admin",
+   "audience": "Admin, Accounts",
+   "minutes": 7,
+   "wave": 4
+  },
+  {
+   "code": "MG6",
+   "title": "Write an SOP page in the Wiki",
+   "track": "Management & Admin",
+   "audience": "Desk leads",
+   "minutes": 4,
+   "wave": 4
+  }
+ ]
+}
