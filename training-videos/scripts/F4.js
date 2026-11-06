@@ -74,10 +74,13 @@ module.exports = {
         // Answer the export request with "no content": nothing is downloaded, so Chrome shows no
         // "Download started" bar in fullscreen. The ERP request itself is the real one.
         let hit = false;
-        await h.page.route(/export_query/, r => { hit = true; return r.fulfill({ status: 204, body: '' }); });
+        // Frappe posts the export as a form to "/" (cmd=frappe.desk.reportview.export_query).
+        const stub = r => { const q = r.request(); if (q.method() === 'POST' && q.resourceType() === 'document') { hit = true; return r.fulfill({ status: 204, body: '' }); } return r.continue(); };
+        const root = u => new URL(u).pathname === '/';
+        await h.page.route(root, stub);
         await h.click(go, { after: 800 });
         await h.page.waitForFunction(() => !document.querySelector('.modal.show'), null, { timeout: 8000 }).catch(() => {});
-        await h.page.unroute(/export_query/);
+        await h.page.unroute(root, stub);
         if (!hit) console.log('[F4] ! export request not seen');
       },
     },
