@@ -98,5 +98,55 @@
     "build": "4f3b365",
     "file": "F9 v1.0 - The document chain: keep everything linked.mp4",
     "sha256": "169212b289ed3216f95975d5242dc7e05fad53b70984ec6e17fdaddebe3b9986"
+  },
+  {
+    "code": "F4",
+    "title": "Report view: group, sort and export to Excel",
+    "version": "1.0",
+    "released": "2026-11-06T15:11:17.992Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "141f7e4",
+    "file": "F4 v1.0 - Report view: group, sort and export to Excel.mp4",
+    "sha256": "c402747fa76420292f54b8deda7b1d22df0908e5a5028a13d1151fc553cd92e7"
+  },
+  {
+    "code": "F5",
+    "title": "Assignments, ToDos, comments and @mentions",
+    "version": "1.0",
+    "released": "2026-11-06T15:13:38.037Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "66b8d22",
+    "file": "F5 v1.0 - Assignments, ToDos, comments and @mentions.mp4",
+    "sha256": "1f8170a043cc6a0fb1fff9826b281a15f59026ef8e48bde1e1cee57a5777835e"
   }
 ]
