@@ -31,7 +31,8 @@ module.exports = {
       chain: {
         kicker: 'Best practice', title: 'Make each document from the one before it',
         steps: [
-          { doc: 'Quotation', note: 'what we offered' },
+          { doc: 'Item code', note: 'check it first: past quotations, sales orders, or Item Variant Details' },
+          { doc: 'Quotation', note: 'what we offered, with the right item code' },
           { doc: 'Sales Order', note: 'made from the quotation; BOM chosen on each line we make', hl: true },
           { doc: 'Work Order', note: 'made from the sales order' },
           { doc: 'Delivery Note', note: 'made from the sales order' },
@@ -42,7 +43,7 @@ module.exports = {
           { doc: 'Purchase Receipt', to: 'Purchase Order', note: 'so goods received match what was ordered' },
         ],
       },
-      say: 'Here is the chain. A sales order is made from the quotation. Work orders and delivery notes are made from the sales order, and the shipment is linked to the delivery note. Buying works the same way. When you follow the chain, anyone can trace an order from start to finish.',
+      say: 'Here is the chain. It starts before the quotation: find the correct item code. Look it up in past quotations or sales orders for that customer, or open the Item Variant Details report and check the build. Then use that item code on the quotation. A sales order is made from the quotation. Work orders and delivery notes are made from the sales order, and the shipment is linked to the delivery note. Buying works the same way. When you follow the chain, anyone can trace an order from start to finish.',
       pad: 1.2,
     },
     {

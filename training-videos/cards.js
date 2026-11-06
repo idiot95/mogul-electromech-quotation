@@ -175,8 +175,8 @@ function chainHTML(c, m) {
     .row{position:absolute;left:120px;right:120px;top:470px;display:flex;align-items:stretch;gap:0}
     .st{flex:1;background:#fff;border:2px solid ${T.line};border-radius:14px;padding:22px 18px;display:flex;flex-direction:column;gap:10px;min-height:150px}
     .st.hl{border-color:${T.green};box-shadow:0 0 0 4px rgba(69,107,64,.15)}
-    .st b{font-size:28px;font-weight:700}.st span{font-size:20px;color:${T.muted};line-height:1.35}
-    .ar{align-self:center;font-size:44px;color:${T.green};padding:0 14px;font-weight:700}
+    .st b{font-size:26px;font-weight:700}.st span{font-size:19px;color:${T.muted};line-height:1.35}
+    .ar{align-self:center;font-size:40px;color:${T.green};padding:0 10px;font-weight:700}
     .links{position:absolute;left:120px;right:120px;top:690px;display:flex;gap:28px}
     .lk{flex:1;border-left:4px solid ${T.green};padding:6px 0 6px 18px;font-size:24px}.lk span{display:block;font-size:19px;color:${T.muted};margin-top:6px}
     .f{position:absolute;left:120px;right:120px;top:930px;padding-top:18px;border-top:1px solid ${T.line};font-size:18px;color:${T.muted}}`,
