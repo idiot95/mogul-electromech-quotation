@@ -62,22 +62,24 @@ module.exports = {
         await h.scroll(380);
         const row = h.page.locator('.frappe-control[data-fieldname=items] .grid-body .grid-row:visible').first();
         await at(1.0); await h.highlight(row, 3800, 4);
-        await at(6.6); await openRow(h);
-        const due = h.page.locator('.grid-row-open .frappe-control[data-fieldname=delivery_date] input:visible').first();
-        await h.click(due, { after: 300 });
-        await h.type(dueDate(), 90); await h.press('Escape');
-        await h.sleep(400);
+        await at(6.6);
+        const cell = row.locator('[data-fieldname=delivery_date]').first();
+        await h.click(cell, { after: 300 });
+        await h.page.waitForFunction(() => document.activeElement?.getAttribute('data-fieldname') === 'delivery_date', null, { timeout: 5000 }).catch(() => {});
+        await h.press('Control+a'); await h.type(dueDate(), 90); await h.press('Tab');
+        await h.sleep(500);
         await h.page.evaluate(async d => { const r = cur_frm.doc.items[0]; if (!r.delivery_date) await frappe.model.set_value(r.doctype, r.name, 'delivery_date', frappe.datetime.user_to_str(d)); }, dueDate());
       },
     },
     {
-      say: 'Further down the line is the B O M, the bill of materials we will make it with. For items we manufacture, check it is the right one. The default B O M fills in by itself.',
+      say: 'On the same line is the B O M, the bill of materials we will make it with. For items we manufacture, check it is the right one. The default B O M fills in by itself.',
       async run(h, at) {
-        const bom = h.page.locator('.grid-row-open .frappe-control[data-fieldname=bom_no]:visible').first();
-        await at(0.8); await bom.scrollIntoViewIfNeeded(); await h.moveTo(bom);
-        await at(2.6); await h.highlight(bom, 4200, 6);
+        const row = h.page.locator('.frappe-control[data-fieldname=items] .grid-body .grid-row:visible').first();
+        const bom = row.locator('[data-fieldname=bom_no]').first();
+        const head = h.page.locator('.frappe-control[data-fieldname=items] .grid-heading-row [data-fieldname=bom_no]:visible').first();
+        await at(0.8); await h.moveTo(bom);
+        await at(2.6); await h.highlight(head, 4200, 6); await h.highlight(bom, 4200, 6);
         await h.tip('Check the BOM on every line we manufacture.', 6000);
-        await at(9.4); await closeRow(h);
       },
     },
     {
@@ -126,16 +128,6 @@ module.exports = {
 };
 
 const dueDate = () => { const d = new Date(Date.now() + 30 * 864e5); return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`; };
-async function openRow(h) {
-  const row = h.page.locator('.frappe-control[data-fieldname=items] .grid-body .grid-row:visible').first();
-  await h.click(row.locator('.btn-open-row').first(), { after: 900 });
-  await h.page.locator('.grid-row-open').first().waitFor({ timeout: 6000 });
-}
-async function closeRow(h) {
-  const c = h.page.locator('.grid-row-open .grid-collapse-row:visible, .grid-row-open .btn-collapse:visible').first();
-  if (await c.count()) await h.click(c, { after: 700 }); else { await h.press('Escape'); await h.sleep(600); }
-}
-
 // Cancel and delete every Sales Order, then every Quotation, for the demo customer.
 async function removeDemo(h) {
   await h.page.evaluate(async cust => {
