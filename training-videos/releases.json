@@ -173,5 +173,30 @@
     "build": "730dfdf",
     "file": "F6 v1.0 - Print, download a PDF and email a document.mp4",
     "sha256": "5ba7394061ef0cbbbc913e44d6b7a3d97737f9257d6d9943befd57a27799314d"
+  },
+  {
+    "code": "F7",
+    "title": "Bulk upload with Data Import",
+    "version": "1.0",
+    "released": "2026-11-06T17:32:05.676Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "4b47913",
+    "file": "F7 v1.0 - Bulk upload with Data Import.mp4",
+    "sha256": "2a584a1e0c810b92f0da67ac36ba2543d079c1fe26a29e2206eb9e920a9f28e7"
   }
 ]
