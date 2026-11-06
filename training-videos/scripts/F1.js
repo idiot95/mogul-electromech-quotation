@@ -7,8 +7,8 @@ module.exports = {
   privacyCSS: '.list-row .level-left .list-row-col:nth-child(7){filter:blur(6px)!important}',
   scenes: [
     {
-      card: { kicker: 'F1 · Foundations', title: 'Find your way around the ERP', sub: 'Apps, desks, search and getting help · 4 minutes' },
-      say: 'Welcome to the Hatim Carbon E R P. In the next four minutes you will learn how to find your desk, get to any screen in a few keystrokes, and ask for help when something looks wrong.',
+      card: { kicker: 'F1 · Foundations', title: 'Find your way around the ERP', sub: 'Apps, desks, search and getting help · 2 minutes' },
+      say: 'Welcome to the Hatim Carbon E R P. In the next two minutes you will learn how to find your desk, get to any screen in a few keystrokes, and ask for help when something looks wrong.',
     },
     {
       say: 'After you sign in, you land on the apps screen. Each tile opens one area of the business: Selling, Buying, Stock, Manufacturing, Quality, and our own I S O Compliance app.',
