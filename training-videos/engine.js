@@ -17,6 +17,14 @@ const VOICE = process.env.PIPER_VOICE; // path to .onnx
 const W = 1920, H = 1080, FPS = 30, DISPLAY = process.env.REC_DISPLAY || ':99';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Always blurred on camera: task text on My Work, and customer / amount / reference
+// columns on list views. Scripts can add more with `privacyCSS`.
+const PRIVACY_CSS = [
+  '.hcc-mw-urgent',
+  '.list-row .list-subject a', '.list-row .list-subject .ellipsis',
+  '.list-row .list-row-col.text-right',
+].join(',') + '{filter:blur(6px)!important}';
+
 // ---------- narration ----------
 function tts(text, cacheDir) {
   const key = crypto.createHash('sha1').update(VOICE + '|' + text).digest('hex').slice(0, 16);
@@ -123,6 +131,11 @@ function makeHelpers(page) {
         }
       }, { src: re.source || re, closest });
     },
+    async clickXY(x, y, after = 700) {
+      const n = Math.max(12, Math.round(Math.hypot(x - cur.x, y - cur.y) / 25));
+      for (let i = 1; i <= n; i++) { const t = i / n, e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; await page.mouse.move(cur.x + (x - cur.x) * e, cur.y + (y - cur.y) * e); await sleep(14); }
+      cur = { x, y }; await sleep(250); await page.mouse.down(); await sleep(60); await page.mouse.up(); await sleep(after);
+    },
     async scroll(dy, steps = 20) { for (let i = 0; i < steps; i++) { await page.mouse.wheel(0, dy / steps); await sleep(25); } await sleep(300); },
   };
   return h;
@@ -148,12 +161,12 @@ function srtTime(s) {
   return `${hh}:${mm}:${ss},${String(ms % 1000).padStart(3, '0')}`;
 }
 function captionChunks(text) {
-  // Split into sentences, then into chunks of <= ~80 chars on word boundaries.
+  // Split into sentences, then into chunks of <= ~72 chars on word boundaries.
   const out = [];
   for (const s of text.match(/[^.!?]+[.!?]*/g) || [text]) {
     let line = '';
     for (const w of s.trim().split(/\s+/)) {
-      if ((line + ' ' + w).trim().length > 80) { out.push(line.trim()); line = w; } else line += ' ' + w;
+      if ((line + ' ' + w).trim().length > 72) { out.push(line.trim()); line = w; } else line += ' ' + w;
     }
     if (line.trim()) out.push(line.trim());
   }
@@ -182,6 +195,10 @@ async function main() {
   });
   const context = await browser.newContext({ viewport: null });
   await context.addInitScript(INIT);
+  await context.addInitScript(css => {
+    const add = () => { if (document.getElementById('__privacy') || !document.head) return; const st = document.createElement('style'); st.id = '__privacy'; st.textContent = css; document.head.appendChild(st); };
+    document.addEventListener('DOMContentLoaded', add); setInterval(add, 300);
+  }, PRIVACY_CSS + (spec.privacyCSS || ''));
   const page = await context.newPage();
   // True fullscreen: no tabs, no address bar.
   const cdp = await context.newCDPSession(page);
@@ -252,7 +269,7 @@ async function main() {
   const args = ['-y', '-loglevel', 'error', '-ss', syncPts.toFixed(3), '-t', total.toFixed(3), '-i', raw];
   timeline.forEach(({ sc }) => args.push('-i', sc.audio.file));
   const mixes = timeline.map(({ start }, i) => `[${i + 1}:a]adelay=${Math.round(start * 1000)}:all=1[a${i}]`).join(';');
-  const style = "FontName=Inter,FontSize=15,PrimaryColour=&H00FFFFFF,BackColour=&H99000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=28";
+  const style = "FontName=Inter,FontSize=11,PrimaryColour=&H00FFFFFF,BackColour=&H99000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=14";
   const filter = `${mixes};${timeline.map((_, i) => `[a${i}]`).join('')}amix=inputs=${timeline.length}:normalize=0,apad[aout];` +
     `[0:v]subtitles='${srtPath.replace(/'/g, "\\'")}':force_style='${style}'[vout]`;
   args.push('-filter_complex', filter, '-map', '[vout]', '-map', '[aout]', '-t', total.toFixed(3),

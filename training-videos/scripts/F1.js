@@ -3,6 +3,8 @@ module.exports = {
   code: 'F1',
   title: 'Find your way around the ERP',
   async warmup(h) { await h.go('/desk'); await h.go('/desk/sales-desk'); await h.go('/desk/sales-order'); },
+  // PO-number column on the Sales Order list.
+  privacyCSS: '.list-row .level-left .list-row-col:nth-child(7){filter:blur(6px)!important}',
   scenes: [
     {
       card: { kicker: 'F1 · Foundations', title: 'Find your way around the ERP', sub: 'Apps, desks, search and getting help · 4 minutes' },
@@ -76,7 +78,6 @@ module.exports = {
       say: 'You are now on the Sales Order list. Every kind of document in the E R P has a list like this. The next video shows how to filter and sort it.',
       async run(h, at) {
         await h.sleep(800);
-        await h.blur('.list-row-col.ellipsis:not(.list-subject), .list-row .list-subject .level-item.bold a, .list-row a.ellipsis');
         const rows = h.page.locator('.frappe-list, .result').first();
         await h.highlight(rows, 3500, 4);
       },
@@ -95,9 +96,9 @@ module.exports = {
     {
       say: 'If something does not work, or a screen looks wrong, click the headset button at the bottom right. Here you can report a new issue and follow your tickets until the fix is live. Video F8 shows this in detail.',
       async run(h, at) {
-        const btn = h.page.locator('use[href="#icon-support"]').first().locator('xpath=ancestor::*[self::button or self::a or self::div][1]');
+        const btn = h.page.locator('button.hcc-ri-glow').first();
         await at(3.6); await h.click(btn, { after: 1200 });
-        const report = h.page.getByText('Report a new issue').first();
+        const report = h.page.locator('text=Report a new issue >> visible=true').first();
         await at(6.5); await h.moveTo(report); await h.highlight(report, 2400, 6);
         await at(10.5); await h.press('Escape');
       },
