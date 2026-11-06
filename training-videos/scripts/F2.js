@@ -21,7 +21,7 @@ module.exports = {
     {
       say: 'Every type of document has a list like this one, for Sales Orders. Each row is one order, and the coloured label shows its status, such as To Bill or Overdue.',
       async run(h, at) {
-        const first = h.page.locator('.list-row-container:visible').first();
+        const first = h.page.locator('.frappe-list .list-row:visible').first();
         await at(4.5); await h.highlight(first, 2600, 4);
         await at(7.6); await h.moveTo(first.locator('.indicator-pill:visible').first());
       },
