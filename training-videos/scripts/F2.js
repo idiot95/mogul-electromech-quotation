@@ -40,8 +40,13 @@ module.exports = {
       say: 'The Filters button shows every filter in use. This list already keeps only open, submitted orders, plus the filter we just added. Add a Filter lets you filter on any field.',
       async run(h, at) {
         const btn = h.page.locator('button.filter-button:visible').first();
-        await at(1.6); await h.click(btn, { after: 900 });
+        await at(1.6);
         const pop = h.page.locator('.popover:visible, .filter-popover:visible').first();
+        // Open the box under a still, and show it only once its filter rows have loaded.
+        await h.transition(async () => {
+          await h.click(btn, { after: 200 });
+          await h.page.waitForFunction(() => [...document.querySelectorAll('.popover .filter-field, .filter-popover .filter-field, .popover .filter-box')].some(e => e.offsetParent), null, { timeout: 6000 });
+        }, { expectNav: false });
         await at(4.4); await h.highlight(pop, 3600, 6);
         await at(9.2); await h.moveTo(h.page.locator('text=Add a Filter >> visible=true').first());
         await at(11.6); await h.press('Escape'); await h.sleep(300);
@@ -102,7 +107,9 @@ module.exports = {
       async run(h, at) {
         const x = h.page.locator('button.filter-x-button:visible, button[data-hcc-title="Clear all filters"]:visible').first();
         await at(1.6); await h.moveTo(x); await h.highlight(x, 1800, 4);
-        await at(3.6); await h.transition(() => x.click(), { expectNav: false });
+        await at(3.6); await h.click(x, { after: 300 });
+        await h.page.waitForFunction(() => !/\d/.test(document.querySelector('button.filter-button')?.innerText || ''), null, { timeout: 8000 });
+        await h.ready();
       },
     },
     {
