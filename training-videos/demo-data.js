@@ -1,0 +1,29 @@
+// Demo master data for training videos, on staging only. Every record is named "DEMO-…".
+// Safe to run again: existing records are left as they are.
+//
+//   node training-videos/demo-data.js            # create what is missing
+//   node training-videos/demo-data.js --list     # show what exists
+//
+// Videos that create documents (Quotations, Sales Orders, …) use these masters, so no real
+// customer, supplier or price appears on screen.
+'use strict';
+const erp = require('./lms/erp');
+
+if (!/staging/.test(erp.BASE)) { console.error(`Refusing to create demo data on ${erp.BASE}: staging only.`); process.exit(2); }
+
+const MASTERS = [
+  ['Customer', 'DEMO-Customer India', { customer_name: 'DEMO-Customer India', customer_type: 'Company', customer_group: 'Motor OEM', territory: 'India' }],
+  ['Customer', 'DEMO-Customer Export', { customer_name: 'DEMO-Customer Export', customer_type: 'Company', customer_group: 'Wind Energy Producers', territory: 'Europe' }],
+  ['Item', 'DEMO-Carbon Brush 20x32x40', { item_code: 'DEMO-Carbon Brush 20x32x40', item_name: 'DEMO-Carbon Brush 20x32x40', item_group: 'Carbon Brush', gst_hsn_code: '85452000', stock_uom: 'Nos', is_stock_item: 1, description: 'Demo item for training videos.' }],
+  ['Item', 'DEMO-Brush Holder BH-25', { item_code: 'DEMO-Brush Holder BH-25', item_name: 'DEMO-Brush Holder BH-25', item_group: 'Brush Holder', gst_hsn_code: '85030090', stock_uom: 'Nos', is_stock_item: 1, description: 'Demo item for training videos.' }],
+];
+
+// Items are numbered automatically (ST…), so they are found by item name, customers by name.
+const exists = (dt, name) => erp.list(dt, [[dt === 'Item' ? 'item_name' : 'name', '=', name]]).length > 0;
+const list = process.argv.includes('--list');
+for (const [dt, name, doc] of MASTERS) {
+  if (exists(dt, name)) { console.log(`= ${dt} ${name}`); continue; }
+  if (list) { console.log(`- ${dt} ${name} (missing)`); continue; }
+  const r = erp.insert(dt, doc);
+  console.log(`+ ${dt} ${r.name}${r.name !== name ? ' (' + name + ')' : ''}`);
+}
