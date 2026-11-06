@@ -26,7 +26,8 @@ const PRIVACY_CSS = [
 ].join(',') + '{filter:blur(6px)!important}';
 
 // ---------- narration ----------
-// TTS_PROVIDER = piper (offline, default) | elevenlabs | azure
+// TTS_PROVIDER = piper (offline, default) | kokoro (offline, American) | elevenlabs | azure
+//   kokoro:     KOKORO_DIR, KOKORO_VOICE (default am_michael), KOKORO_PYTHON (python with kokoro-onnx)
 //   elevenlabs: ELEVEN_VOICE_ID (default: a calm narrator voice), ELEVEN_MODEL (default eleven_multilingual_v2)
 //   azure:      AZURE_TTS_REGION (e.g. centralindia), AZURE_VOICE (default en-IN-NeerjaNeural)
 // API keys are never read here: the cloud session's network proxy adds them to the request.
@@ -35,12 +36,18 @@ const PROVIDER = process.env.TTS_PROVIDER || 'piper';
 function voiceId() {
   if (PROVIDER === 'elevenlabs') return 'el:' + (process.env.ELEVEN_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb') + ':' + (process.env.ELEVEN_MODEL || 'eleven_multilingual_v2');
   if (PROVIDER === 'azure') return 'az:' + (process.env.AZURE_VOICE || 'en-IN-NeerjaNeural');
+  if (PROVIDER === 'kokoro') return 'kokoro:' + (process.env.KOKORO_VOICE || 'am_michael') + ':' + (process.env.KOKORO_SPEED || '1.0');
   return 'piper:' + VOICE;
 }
 function synth(text, out) {
   if (PROVIDER === 'piper') {
     execFileSync(PIPER, ['-m', VOICE, '-f', out, '--length_scale', '1.05', '--sentence_silence', '0.35'],
       { input: text, stdio: ['pipe', 'ignore', 'ignore'] });
+    return;
+  }
+  if (PROVIDER === 'kokoro') {
+    execFileSync(process.env.KOKORO_PYTHON || 'python3', [path.join(ROOT, 'tts_kokoro.py'), out],
+      { input: text, stdio: ['pipe', 'ignore', 'inherit'] });
     return;
   }
   const mp3 = out.replace(/\.wav$/, '.mp3');
