@@ -69,3 +69,32 @@ Helpers: `go(route)`, `click(sel)`, `moveTo(sel)`, `type(text)`, `press(key)`,
 - Record on **staging** only. Videos that create documents use records prefixed `DEMO-`.
 - Blur customer names, phone numbers and prices that are not demo data.
 - Spell acronyms the way they should be spoken (`E R P`, `I S O`) in `say` text.
+
+## Branding, legal notice and version control
+
+Every video opens with a notice frame: the HCC logo (`brand/hcc-logo.png`), a red
+**CONFIDENTIAL — FOR HATIM CARBON EMPLOYEES ONLY** banner, a version block and the
+legal notice (confidentiality and no-distribution, test-system and blurred-data note,
+computer-generated narration, copyright, ERPNext/Frappe trademarks). Title and end
+cards carry the logo and a footer line; ERP footage carries a corner watermark.
+
+Have your legal or compliance team approve the notice wording in `noticeHTML()` in
+`engine.js` before the first release.
+
+| Field | Source |
+| --- | --- |
+| Version | `version` in the script (e.g. `'1.0'`) |
+| Released / Draft of | render date (India time) |
+| Recorded on | ERPNext version read from `ERP_URL` at render time |
+| Build | git commit of the script and engine (`+local` = uncommitted changes) |
+
+- A normal render is a **DRAFT**: orange DRAFT ribbon, `(DRAFT)` in the file name.
+- `node training-videos/engine.js training-videos/scripts/F1.js --release` makes a release:
+  it refuses uncommitted code or a version that was already released, stamps the
+  release date, and appends the version, ERP versions, build id and SHA-256 of the
+  file to `releases.json`. Commit `releases.json` afterwards.
+- To release a change, bump `version`. Use the minor number (1.0 → 1.1) for a
+  re-record after a screen change, and the major number (1.x → 2.0) when the steps
+  or narration change.
+- Each render also writes `<file>.json` next to the MP4 (version, ERP app versions,
+  voice, scene timings) and tags the MP4 with title, copyright and version.
