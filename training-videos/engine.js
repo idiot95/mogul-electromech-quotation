@@ -373,7 +373,10 @@ async function main() {
   const filter = `${mixes};${timeline.map((_, i) => `[a${i}]`).join('')}amix=inputs=${timeline.length}:normalize=0,apad[aout];` +
     `[0:v]subtitles='${srtPath.replace(/'/g, "\\'")}':force_style='${style}',${watermark}[vout]`;
   args.push('-filter_complex', filter, '-map', '[vout]', '-map', '[aout]', '-t', total.toFixed(3),
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart',
+    // Compressed for upload to Frappe LMS: 1080p kept for legible ERP text, 15 fps is plenty for
+    // screen recordings, mono speech audio. About 1 MB per minute (F1: 3.95 MB -> 2.11 MB, SSIM > 0.99).
+    '-r', '15', '-c:v', 'libx264', '-preset', 'slow', '-crf', process.env.VIDEO_CRF || '28', '-tune', 'stillimage', '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac', '-b:a', '48k', '-ac', '1', '-movflags', '+faststart',
     '-metadata', `title=${spec.code} v${meta.version} - ${spec.title}`, '-metadata', `artist=${COMPANY}`,
     '-metadata', `copyright=(c) ${meta.year} ${COMPANY} All rights reserved. Confidential - for Hatim Carbon employees only.`,
     '-metadata', `comment=Version ${meta.version}; ${meta.release ? 'released' : 'DRAFT'} ${meta.date}; ERPNext ${meta.erp} (${meta.site}); build ${meta.build}`,
