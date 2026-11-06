@@ -27,7 +27,7 @@ module.exports = {
     {
       say: 'Most of your day starts from your department desk. There are five: Sales, Purchase, Production, Operations, and Management. Here is the Sales Desk.',
       async run(h, at) {
-        await at(6.5);
+        await at(4.6); // the desk loads under a still and appears as "Here is the Sales Desk" is said
         await h.go('/desk/sales-desk');
         await privacy(h);
       },

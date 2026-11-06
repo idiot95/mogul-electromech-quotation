@@ -172,7 +172,20 @@ function makeHelpers(page) {
         await sleep(150);
       }
       if (Date.now() >= end) console.warn(`  ! page still loading after ${max / 1000}s: ${page.url()} (check this scene's frames)`);
-      await sleep(300);
+      // Then wait until the page has stopped changing: no DOM changes and no scrolling for 700 ms
+      // (lists render rows after the network is quiet; the desk restores its scroll position late).
+      await page.evaluate(() => new Promise(done => {
+        let last = Date.now(), y = scrollY;
+        const mo = new MutationObserver(ms => { if (ms.some(m => !(m.target.closest && m.target.closest('#__cur, .__hl, #__still')))) last = Date.now(); });
+        mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+        const t0 = Date.now();
+        const tick = () => {
+          if (scrollY !== y) { y = scrollY; last = Date.now(); }
+          if (Date.now() - last >= 700 || Date.now() - t0 > 5000) { mo.disconnect(); done(); } else setTimeout(tick, 100);
+        };
+        tick();
+      })).catch(() => {});
+      await sleep(150);
     },
     // Run an action that changes the screen (route change, Enter in search, a click that opens
     // a page) under a still of the current screen, then reveal the loaded result.
