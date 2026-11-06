@@ -402,12 +402,26 @@ async function main() {
     ignoreDefaultArgs: ['--enable-automation'],
     args: ['--kiosk', `--window-size=${W},${H}`, '--window-position=0,0', '--force-device-scale-factor=1', '--disable-infobars', '--no-first-run', '--hide-crash-restore-bubble'],
   });
-  const context = await browser.newContext({ viewport: null });
+  const context = await browser.newContext({ viewport: null, acceptDownloads: true });
   await context.addInitScript(INIT);
   await context.addInitScript(css => {
     const add = () => { if (document.getElementById('__privacy') || !document.head) return; const st = document.createElement('style'); st.id = '__privacy'; st.textContent = css; document.head.appendChild(st); };
     document.addEventListener('DOMContentLoaded', add); setInterval(add, 300);
   }, PRIVACY_CSS + (spec.privacyCSS || ''));
+  // Report view (data table): blur whole columns whose header names a customer, supplier, amount or
+  // reference, wherever those columns sit. Re-checked continuously as the table re-renders.
+  await context.addInitScript(words => {
+    const rx = new RegExp(words, 'i');
+    const run = () => {
+      const heads = [...document.querySelectorAll('.dt-header .dt-cell[data-col-index]')];
+      const cols = heads.filter(c => rx.test(c.innerText.trim())).map(c => c.getAttribute('data-col-index'));
+      let st = document.getElementById('__privacy_dt');
+      if (!st) { st = document.createElement('style'); st.id = '__privacy_dt'; (document.head || document.documentElement).appendChild(st); }
+      const css = cols.map(i => `.dt-cell[data-row-index][data-col-index="${i}"] .dt-cell__content, .dt-tree-node[data-col-index="${i}"]`).join(',');
+      st.textContent = css ? css + '{filter:blur(6px)!important}' : '';
+    };
+    setInterval(run, 250);
+  }, '^(customer|customer name|supplier|supplier name|party|grand total|net total|total|rounded total|amount|rate|outstanding amount|customer.s purchase order|po no|contact|mobile|email)');
   const page = await context.newPage();
   // True fullscreen: no tabs, no address bar.
   const cdp = await context.newCDPSession(page);
