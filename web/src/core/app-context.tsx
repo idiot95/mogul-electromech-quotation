@@ -3,11 +3,17 @@ import { Button, Center, Loader, Stack, Text, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import { api } from "../lib/api";
-import type { Salesman, Settings } from "../lib/types";
+import type { Rep, SessionUser, Settings } from "../lib/types";
+import { ChangePassword, SignIn } from "./SignIn";
 
 interface AppState {
+  user: SessionUser;
+  isAdmin: boolean;
+  setUser: (u: SessionUser) => void;
+  signOut: () => Promise<void>;
   settings: Settings | null;
-  salesmen: Salesman[];
+  /** Users, as Sales Reps (active ones are offered on new quotations). */
+  reps: Rep[];
   env: string;
   reload: () => Promise<void>;
   toast: (msg: string, err?: boolean) => void;
@@ -26,8 +32,10 @@ export const toast = (message: string, err = false) =>
   });
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  // undefined = still checking, null = signed out
+  const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [salesmen, setSalesmen] = useState<Salesman[]>([]);
+  const [reps, setReps] = useState<Rep[]>([]);
   const [env, setEnv] = useState("");
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
@@ -35,11 +43,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const [s, sm, h] = await Promise.all([
         api.get<Settings>("/settings"),
-        api.get<Salesman[]>("/salesmen?all=1"),
+        api.get<Rep[]>("/reps"),
         api.get<{ env: string }>("/health"),
       ]);
       setSettings(s);
-      setSalesmen(sm);
+      setReps(sm);
       setEnv(h.env);
       setLoadErr(null);
     } catch (e) {
@@ -48,8 +56,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    reload();
-  }, [reload]);
+    api.get<SessionUser>("/auth/me").then(setUser, () => setUser(null));
+    const out = () => setUser(null);
+    window.addEventListener("mogul:signed-out", out);
+    return () => window.removeEventListener("mogul:signed-out", out);
+  }, []);
+
+  const ready = !!user && !user.mustChange;
+  useEffect(() => {
+    if (ready) reload();
+  }, [ready, reload]);
+
+  const signOut = useCallback(async () => {
+    await api.post("/auth/logout").catch(() => {});
+    setSettings(null);
+    setUser(null);
+  }, []);
+
+  if (user === undefined) return <Center h="100vh"><Loader /></Center>;
+  if (user === null) return <SignIn onSignedIn={setUser} />;
+  if (user.mustChange) return <ChangePassword forced onDone={setUser} onSignOut={signOut} />;
 
   if (loadErr)
     return (
@@ -63,5 +89,5 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   if (!settings) return <Center h="100vh"><Loader /></Center>;
 
-  return <Ctx.Provider value={{ settings, salesmen, env, reload, toast }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, isAdmin: user.role === "admin", setUser, signOut, settings, reps, env, reload, toast }}>{children}</Ctx.Provider>;
 }

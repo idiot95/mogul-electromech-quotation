@@ -1,6 +1,11 @@
 # Moving mogulelectromech.com and hatimcarbon.com off Wix, without breaking email or websites
 
-Status: **plan only. Nothing has been changed.** The record lists below come from a public DNS lookup on 26 Oct 2026. A public lookup can't list every record in a zone, so step 1 (export from Wix) is still required.
+Status (26 Oct 2026): **mogulelectromech.com done.** Its registrar is GoDaddy (not Wix), so no transfer was needed: the zone
+was built on Cloudflare (3 Wix A records, `www` → cdn3.wixdns.net, `email` → email.secureserver.net, Microsoft 365 MX — all
+DNS only) and the nameservers were changed at GoDaddy to `aaden.ns.cloudflare.com` / `luciane.ns.cloudflare.com`.
+Rollback: set `ns8.wixdns.net` / `ns9.wixdns.net` back at GoDaddy. hatimcarbon.com: **plan only, nothing changed.**
+
+The record lists below come from a public DNS lookup on 26 Oct 2026. A public lookup can't list every record in a zone, so step 1 (export from Wix) is still required.
 
 ## Recommendation
 

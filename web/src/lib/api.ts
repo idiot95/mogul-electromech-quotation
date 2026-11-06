@@ -19,6 +19,8 @@ async function request<T>(method: string, path: string, data?: unknown): Promise
   } catch {
     /* non-JSON */
   }
+  // signed out (session ended, deactivated, or signed out in another tab): back to the sign-in screen
+  if (res.status === 401 && !path.startsWith("/auth/login")) window.dispatchEvent(new Event("mogul:signed-out"));
   if (!res.ok) throw new ApiError(res.status, (json as { error?: string })?.error || `${res.status} ${res.statusText}`);
   return json as T;
 }

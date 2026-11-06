@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppContext } from "../env";
 import { body, bad } from "./util";
+import { requireAdmin } from "./auth";
 
 const EDITABLE = new Set(["company", "quotes"]);
 
@@ -16,12 +17,14 @@ export async function getSetting<T>(db: D1Database, key: string, fallback: T): P
 
 export const settingsApi = new Hono<AppContext>()
   .get("/", async (c) => {
-    const { results } = await c.env.DB.prepare("SELECT key, value FROM settings").all<{ key: string; value: string }>();
+    const { results } = await c.env.DB.prepare(`SELECT key, value FROM settings WHERE key IN (${[...EDITABLE].map(() => "?").join(", ")})`)
+      .bind(...EDITABLE)
+      .all<{ key: string; value: string }>();
     const out: Record<string, unknown> = {};
     for (const r of results) out[r.key] = JSON.parse(r.value);
     return c.json(out);
   })
-  .put("/:key", async (c) => {
+  .put("/:key", requireAdmin, async (c) => {
     const key = c.req.param("key");
     if (!EDITABLE.has(key)) throw bad("Unknown setting");
     const value = await body(c);

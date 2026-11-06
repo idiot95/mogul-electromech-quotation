@@ -1,92 +1,161 @@
-import { useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { NavLink as RouterLink, Outlet, useLocation } from "react-router";
-import { AppShell, Badge, Box, Burger, Button, Group, NavLink, ScrollArea, Text } from "@mantine/core";
+import { ActionIcon, AppShell, Avatar, Box, Burger, Button, Center, Group, Loader, Menu, Modal, ScrollArea, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { IconHome, IconFileText, IconUsers, IconSettings, IconPlus } from "@tabler/icons-react";
+import { IconHome, IconFileText, IconUsers, IconSettings, IconPlus, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconUserShield, IconKey, IconLogout, IconSelector } from "@tabler/icons-react";
 import { modules } from "../modules";
 import { useApp } from "./app-context";
+import { ChangePassword } from "./SignIn";
 
 const ICONS: Record<string, typeof IconHome> = { "/quotes": IconFileText };
+const COLLAPSED_KEY = "mogul.sidebarCollapsed";
 
-function Brand() {
+/** The company logo; collapsed, only the ME mark (the left part of the same image) shows. */
+function Brand({ height, markOnly }: { height: number; markOnly?: boolean }) {
   return (
-    <Group gap={10} wrap="nowrap">
-      <Box component="span" fw={800} fz={16} px={7} py={1} bg="white" c="maroon.7" style={{ fontFamily: "var(--mantine-font-family-headings)", borderRadius: 2 }}>
-        ME
-      </Box>
-      <Text fw={700} c="white" ff="heading">Mogul Workspace</Text>
-    </Group>
+    <Box component={RouterLink} to="/" display="block" lh={0} aria-label="Mogul Electromech · Dashboard" className="brand">
+      <img
+        src="/logo.jpg"
+        alt="Mogul Electromech LLC"
+        style={markOnly ? { height, width: height * 0.78, objectFit: "cover", objectPosition: "3% 50%" } : { height, width: "auto", maxWidth: "100%" }}
+      />
+    </Box>
   );
 }
 
 export function Shell() {
-  const { env } = useApp();
+  const { env, user, isAdmin, setUser, signOut, toast } = useApp();
+  const [pwOpen, setPwOpen] = useState(false);
+  const initials = user.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const [opened, { toggle, close }] = useDisclosure();
   const loc = useLocation();
   useEffect(close, [loc.pathname]);
   const staging = env && env !== "production";
   const desktop = useMediaQuery("(min-width: 62em)", true);
+  const [collapsedPref, setCollapsedPref] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const collapsed = desktop && collapsedPref;
+  const setCollapsed = (v: boolean) => {
+    setCollapsedPref(v);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, v ? "1" : "0");
+    } catch {
+      /* storage unavailable */
+    }
+  };
 
   const link = (to: string, label: string, Icon: typeof IconHome, end = false) => {
     const active = end ? loc.pathname === to : loc.pathname === to || loc.pathname.startsWith(to + "/");
     return (
-      <NavLink
-        key={to}
-        component={RouterLink}
-        to={to}
-        label={label}
-        leftSection={<Icon size={18} stroke={1.7} />}
-        active={active}
-        variant="filled"
-        color="maroon"
-        c={active ? undefined : "gray.3"}
-        style={{ borderRadius: 6 }}
-      />
+      <Tooltip key={to} label={label} position="right" disabled={!collapsed} withArrow>
+        <UnstyledButton component={RouterLink} to={to} className="side-link" data-active={active || undefined} data-collapsed={collapsed || undefined} aria-label={label}>
+          <Icon size={19} stroke={1.7} />
+          {!collapsed && <span>{label}</span>}
+        </UnstyledButton>
+      </Tooltip>
     );
   };
 
   return (
     <AppShell
-      header={{ height: 52, collapsed: desktop }}
-      navbar={{ width: 230, breakpoint: "md", collapsed: { mobile: !opened } }}
+      header={{ height: 56, collapsed: desktop }}
+      navbar={{ width: collapsed ? 76 : 256, breakpoint: "md", collapsed: { mobile: !opened } }}
       padding="lg"
     >
-      <AppShell.Header className="no-print" bg="charcoal.8" withBorder={false}>
-        <Group h="100%" px="md">
-          <Burger opened={opened} onClick={toggle} size="sm" color="white" aria-label="Menu" />
-          <Brand />
+      <AppShell.Header className="no-print side-header">
+        <Group h="100%" px="md" gap="sm">
+          <Burger opened={opened} onClick={toggle} size="sm" aria-label="Menu" />
+          <Brand height={36} />
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar className="no-print" bg="charcoal.8" p="sm" withBorder={false}>
-        <Box py="xs" px={6} visibleFrom="md"><Brand /></Box>
+      <AppShell.Navbar className="no-print side" p={collapsed ? "sm" : "md"}>
+        <Box visibleFrom="md" pt={collapsed ? 8 : 10} pb={collapsed ? 18 : 22} px={collapsed ? 0 : 4} style={{ display: "flex", justifyContent: collapsed ? "center" : "flex-start" }}>
+          <Brand height={collapsed ? 44 : 64} markOnly={collapsed} />
+        </Box>
+
         {modules.map((m) =>
           m.newAction ? (
-            <Button key={m.id} component={RouterLink} to={m.newAction.path} leftSection={<IconPlus size={16} />} my="sm" fullWidth>
-              {m.newAction.label}
-            </Button>
+            collapsed ? (
+              <Tooltip key={m.id} label={m.newAction.label} position="right" withArrow>
+                <ActionIcon component={RouterLink} to={m.newAction.path} variant="outline" size={44} radius="md" mx="auto" mb="lg" aria-label={m.newAction.label}>
+                  <IconPlus size={20} />
+                </ActionIcon>
+              </Tooltip>
+            ) : (
+              <Button key={m.id} component={RouterLink} to={m.newAction.path} variant="outline" leftSection={<IconPlus size={18} />} size="md" mb="lg" fullWidth radius="md" bg="white">
+                {m.newAction.label}
+              </Button>
+            )
           ) : null,
         )}
+
         <AppShell.Section grow component={ScrollArea}>
-          {link("/", "Home", IconHome, true)}
-          {modules.flatMap((m) => m.nav.map((n) => link(n.path, n.label, ICONS[n.path] || IconFileText)))}
-          <Text fz={10} ff="monospace" tt="uppercase" c="gray.5" lts={1.2} px="sm" pt="md" pb={4}>Core</Text>
-          {link("/customers", "Customers", IconUsers)}
-          {link("/settings", "Settings", IconSettings)}
+          <Stack gap={4}>
+            {link("/", "Dashboard", IconHome, true)}
+            {modules.flatMap((m) => m.nav.map((n) => link(n.path, n.label, ICONS[n.path] || IconFileText)))}
+            {collapsed ? <Box h={1} bg="gray.3" my="sm" mx="xs" /> : <Text className="side-group">Administration</Text>}
+            {link("/customers", "Customers", IconUsers)}
+            {isAdmin && link("/users", "Users", IconUserShield)}
+            {isAdmin && link("/settings", "Settings", IconSettings)}
+          </Stack>
         </AppShell.Section>
-        <Group px={6} pt="sm">
-          {env && <Badge variant="outline" color={env === "production" ? "teal" : "yellow"} size="sm">{env === "production" ? "Live" : env}</Badge>}
+
+        <Menu position={collapsed ? "right-end" : "top-start"} shadow="md" width={220} withinPortal>
+          <Menu.Target>
+            <UnstyledButton className="side-user" data-collapsed={collapsed || undefined} aria-label="Account">
+              <Avatar size={32} radius="xl" color="maroon">{initials}</Avatar>
+              {!collapsed && (
+                <>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <Text fz="sm" fw={600} truncate>{user.name}</Text>
+                    <Text fz="xs" c="dimmed" truncate>{isAdmin ? "Admin" : "User"} · {user.username}</Text>
+                  </div>
+                  <IconSelector size={16} color="var(--mantine-color-gray-6)" />
+                </>
+              )}
+            </UnstyledButton>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item leftSection={<IconKey size={15} />} onClick={() => setPwOpen(true)}>Change Password</Menu.Item>
+            <Menu.Item leftSection={<IconLogout size={15} />} onClick={signOut}>Sign Out</Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+
+        <Group justify={collapsed ? "center" : "space-between"} pt="sm" mt="sm" className="side-foot" wrap="nowrap">
+          {env && !collapsed && (
+            <Group gap={6} wrap="nowrap">
+              <Box w={8} h={8} style={{ borderRadius: 4 }} bg={env === "production" ? "teal.6" : "yellow.6"} />
+              <Text fz="xs" c="dimmed" fw={500}>{env === "production" ? "Production" : env === "staging" ? "Staging" : "Local"}</Text>
+            </Group>
+          )}
+          <Tooltip label={collapsed ? "Expand sidebar" : "Collapse sidebar"} position="right" withArrow>
+            <ActionIcon variant="subtle" color="gray" size="lg" visibleFrom="md" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+              {collapsed ? <IconLayoutSidebarLeftExpand size={20} /> : <IconLayoutSidebarLeftCollapse size={20} />}
+            </ActionIcon>
+          </Tooltip>
         </Group>
       </AppShell.Navbar>
 
+      <Modal opened={pwOpen} onClose={() => setPwOpen(false)} title={<Text fw={700} ff="heading" fz="lg">Change Password</Text>}>
+        <ChangePassword onDone={(u) => { setUser(u); setPwOpen(false); toast("Password changed"); }} onCancel={() => setPwOpen(false)} />
+      </Modal>
+
       <AppShell.Main bg="gray.0">
         {staging && (
-          <Text ta="center" fz={12} fw={600} ff="monospace" bg="yellow.4" c="dark.8" py={4} mx="calc(var(--mantine-spacing-lg) * -1)" mt="calc(var(--mantine-spacing-lg) * -1)" mb="md" className="no-print">
-            {env.toUpperCase()} · test data only · not the live system
+          <Text ta="center" fz={12} fw={600} bg="yellow.4" c="dark.8" py={4} mx="calc(var(--mantine-spacing-lg) * -1)" mt="calc(var(--mantine-spacing-lg) * -1)" mb="md" className="no-print">
+            {env === "staging" ? "Staging Environment" : "Local Environment"}
           </Text>
         )}
         <Box maw={1440} mx="auto">
-          <Outlet />
+          <Suspense fallback={<Center py={80}><Loader /></Center>}>
+            <Outlet />
+          </Suspense>
         </Box>
       </AppShell.Main>
     </AppShell>

@@ -2,10 +2,15 @@
 
 | Environment | Worker | D1 database | R2 bucket | Deploys when |
 |---|---|---|---|---|
-| Staging | `mogul-workspace-staging` | `mogul-workspace-staging` | `mogul-workspace-staging` | push to `staging` or any `claude/**` branch |
+| Staging | `mogul-workspace-staging` | `mogul-workspace-staging-eu` | `mogul-workspace-staging-eu` | push to `staging` or any `claude/**` branch |
 | Live | `mogul-workspace` | `mogul-workspace-production` | `mogul-workspace-production` | push to `main` (merged pull request) |
 
-Staging and live never share data. Staging shows a yellow "STAGING · test data only" bar.
+Staging and live never share data. Staging shows a yellow "Staging Environment" bar.
+
+**Region:** databases and file buckets are created in Western Europe (Amsterdam, location hint `weur`), the closest
+D1/R2 region to the UAE; the Worker uses Smart Placement to run next to them. A D1 or R2 location can't be changed after
+creation. The first staging database and bucket (`mogul-workspace-staging`, Eastern North America) were copied to the
+`-eu` ones on 27 Oct 2026 and are no longer used.
 
 ## One-time setup (≈5 minutes)
 
@@ -24,9 +29,14 @@ The app is then at `https://mogul-workspace-staging.<your-subdomain>.workers.dev
 
 ## Custom domains
 
-Once mogulelectromech.com's DNS is on Cloudflare (see DNS-MIGRATION.md), uncomment the `routes` lines in
-`wrangler.jsonc` → `quotes-staging.mogulelectromech.com` and `quotes.mogulelectromech.com`. Cloudflare creates the
-DNS record and certificate on the next deploy.
+| Environment | Address |
+|---|---|
+| Staging | https://quotes-staging.mogulelectromech.com |
+| Live | https://quotes.mogulelectromech.com |
+
+Set by the `routes` lines in `wrangler.jsonc`. mogulelectromech.com's DNS is on Cloudflare (registrar: GoDaddy,
+nameservers `aaden` / `luciane.ns.cloudflare.com`), so Cloudflare creates the DNS record and certificate on deploy.
+The deploy token needs *Zone · DNS · Edit* and *Zone · Workers Routes · Edit* for mogulelectromech.com.
 
 ## Manual deploy from a computer
 

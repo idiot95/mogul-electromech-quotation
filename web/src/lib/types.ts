@@ -16,12 +16,33 @@ export interface Customer {
   last_quote_date?: string | null;
 }
 
-export interface Salesman {
+export interface SessionUser {
   id: number;
+  username: string;
   name: string;
+  role: "admin" | "user";
+  mustChange: boolean;
+}
+
+export interface AppUser {
+  id: number;
+  username: string;
+  display_name: string;
   email: string | null;
   phone: string | null;
   email_template: string | null;
+  role: "admin" | "user";
+  active: number;
+  must_change_password: number;
+  has_password: number; // 0 until an admin sets one (users made from the old Sales Reps list)
+  locked_until: string | null;
+  created_at: string;
+}
+
+/** A user, as picked for the Sales Rep on a quotation. */
+export interface Rep {
+  id: number;
+  display_name: string;
   active: number;
 }
 
@@ -52,10 +73,11 @@ export interface Settings {
   quotes: QuoteSettings;
 }
 
-export type QuoteStatus = "draft" | "printed" | "emailed" | "cancelled";
+export type QuoteStatus = "draft" | "printed" | "emailed" | "won" | "partly_won" | "lost" | "cancelled";
 
 export interface Line {
   id?: number;
+  pos?: number;
   kind: "item" | "heading";
   description: string;
   qty: number | null;
@@ -71,7 +93,7 @@ export interface QuoteHeader {
   customer_address: string | null;
   attention: string | null;
   enquiry_ref: string | null;
-  salesman_id: number | null;
+  sales_rep_id: number | null;
   payment_terms: string | null;
   validity: string | null;
   delivery_terms: string | null;
@@ -91,17 +113,42 @@ export interface Quote extends QuoteHeader {
   vat_amount: number;
   total: number;
   superseded_by: number | null;
-  salesman_name: string | null;
-  salesman_email: string | null;
-  salesman_phone: string | null;
-  salesman_email_template: string | null;
+  sales_rep_name: string | null;
+  sales_rep_email: string | null;
+  sales_rep_phone: string | null;
+  sales_rep_email_template: string | null;
   customer_email: string | null;
   created_at: string;
   updated_at: string;
   lines: Line[];
   emails: { id: number; to_addr: string; cc_addr: string; subject: string; method: string; sent_by: string; created_at: string }[];
   revisions: { id: number; rev: number; status: QuoteStatus; quote_date: string; total: number }[];
-  workings_count: number;
+  orders: Order[];
+  lost_reason: string | null;
+  lost_note: string | null;
+}
+
+/** A customer PO recorded against a quote. */
+export interface Order {
+  id: number;
+  po_number: string | null;
+  po_date: string | null;
+  note: string | null;
+  subtotal: number;
+  created_at: string;
+  lines: OrderLine[];
+  files: FileRow[];
+}
+
+export interface OrderLine {
+  pos: number;
+  description: string;
+  unit: string | null;
+  quoted_qty: number | null;
+  quoted_rate: number | null;
+  qty: number;
+  rate: number | null;
+  amount: number | null;
 }
 
 export interface QuoteListRow {
@@ -113,12 +160,15 @@ export interface QuoteListRow {
   customer_id: number | null;
   customer_name: string;
   enquiry_ref: string | null;
-  salesman_name: string | null;
+  sales_rep_name: string | null;
   subtotal: number;
   total: number;
   currency: string;
   line_count: number;
   superseded_by: number | null;
+  ordered_value: number;
+  lost_reason: string | null;
+  created_by_name: string | null;
 }
 
 export interface FileRow {

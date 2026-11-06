@@ -30,7 +30,8 @@ export interface PasteResult {
 export interface PasteInput {
   text?: string;
   html?: string | null;
-  rows?: string[][]; // already-tabular input, e.g. from an .xlsx file
+  rows?: string[][]; // already-tabular input, e.g. from an .xlsx file, a PDF or a screenshot
+  source?: string; // where it came from, shown in the preview ("PDF", "Screenshot (read by OCR)", …)
 }
 
 const UNIT_WORDS =
@@ -81,8 +82,11 @@ function roleForHeader(h: string): string | null {
 export function rowsFromHTML(html: string): string[][] | null {
   if (typeof DOMParser === "undefined") return null;
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const tbl = doc.querySelector("table");
-  if (!tbl) return null;
+  // Emails wrap content in layout tables and add signature tables: take the innermost table with the most cells.
+  const tables = [...doc.querySelectorAll("table")].filter((t) => !t.querySelector("table"));
+  if (!tables.length) return null;
+  const cells = (t: Element) => t.querySelectorAll("td,th").length;
+  const tbl = tables.reduce((a, b) => (cells(b) > cells(a) ? b : a));
   const out: string[][] = [];
   tbl.querySelectorAll("tr").forEach((tr) => {
     const r: string[] = [];
@@ -342,11 +346,11 @@ export function analysePaste(input: PasteInput, overrides?: Record<number, Role>
   let source = "";
   if (input.rows) {
     rows = input.rows;
-    source = "Spreadsheet file";
+    source = input.source || "Spreadsheet file";
   }
   if (!rows && input.html) {
     rows = rowsFromHTML(input.html);
-    if (rows && rows.length) source = "Excel cells (rich clipboard)";
+    if (rows && rows.length) source = input.source || "Excel cells (rich clipboard)";
     else rows = null;
   }
   if (!rows && text.includes("\t")) {
@@ -355,7 +359,7 @@ export function analysePaste(input: PasteInput, overrides?: Record<number, Role>
   }
   const res = rows ? analyseGrid(rows, overrides) : analyseText(text);
   const enqSrc = text || (rows ? rows.slice(0, 6).map((r) => r.join(" ")).join("\n") : "");
-  return { ...res, source: rows ? source : "Text list (email / notes)", enquiry: findEnquiryRef(enqSrc) };
+  return { ...res, source: rows ? source : input.source || "Text list (email / notes)", enquiry: findEnquiryRef(enqSrc) };
 }
 
 /** A single column of numbers pasted into the Rate column (costing done in Excel). */

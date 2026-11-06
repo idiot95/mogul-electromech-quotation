@@ -9,4 +9,5 @@ export interface WebModule {
   routes: RouteObject[];
   widgets?: ComponentType[]; // shown on the Home page
   newAction?: { label: string; path: string }; // quick action in the sidebar
+  prefetch?: () => void; // load the module's page code in the background
 }

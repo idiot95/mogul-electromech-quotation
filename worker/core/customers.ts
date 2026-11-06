@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppContext } from "../env";
 import { body, bad, intParam, notFound, str } from "./util";
+import { ownQuote, requireAdmin } from "./auth";
 
 const FIELDS = [
   "name", "address", "contact_person", "email", "phone", "trn",
@@ -16,7 +17,8 @@ export const customersApi = new Hono<AppContext>()
     const q = (c.req.query("q") || "").trim();
     const all = c.req.query("all") === "1";
     const where: string[] = [];
-    const args: unknown[] = [];
+    const own = ownQuote(c.get("user"), "q.created_by"); // quote counts only cover the quotations the user can see
+    const args: unknown[] = [...own.args, ...own.args];
     if (!all) where.push("c.active = 1");
     if (q) {
       where.push("(c.name LIKE ? OR c.email LIKE ? OR c.contact_person LIKE ?)");
@@ -24,8 +26,8 @@ export const customersApi = new Hono<AppContext>()
     }
     const { results } = await c.env.DB.prepare(
       `SELECT c.*,
-         (SELECT COUNT(*) FROM q_quotes q WHERE q.customer_id = c.id AND q.superseded_by IS NULL) AS quote_count,
-         (SELECT MAX(q.quote_date) FROM q_quotes q WHERE q.customer_id = c.id) AS last_quote_date
+         (SELECT COUNT(*) FROM q_quotes q WHERE q.customer_id = c.id AND q.superseded_by IS NULL AND ${own.sql}) AS quote_count,
+         (SELECT MAX(q.quote_date) FROM q_quotes q WHERE q.customer_id = c.id AND ${own.sql}) AS last_quote_date
        FROM customers c ${where.length ? "WHERE " + where.join(" AND ") : ""}
        ORDER BY c.name COLLATE NOCASE LIMIT 500`,
     )
@@ -50,7 +52,7 @@ export const customersApi = new Hono<AppContext>()
     return c.json(row, 201);
   })
   // Bulk import (e.g. from a Tally ledger export). Skips names that already exist.
-  .post("/import", async (c) => {
+  .post("/import", requireAdmin, async (c) => {
     const b = await body<{ rows: Record<string, unknown>[] }>(c);
     if (!Array.isArray(b.rows)) throw bad("rows[] expected");
     const { results: existing } = await c.env.DB.prepare("SELECT name FROM customers").all<{ name: string }>();

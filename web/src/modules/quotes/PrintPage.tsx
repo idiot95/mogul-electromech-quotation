@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
-import { Alert, Box, Button, Center, Code, Group, Loader } from "@mantine/core";
-import { IconAlertTriangle, IconArrowLeft, IconInfoCircle, IconMail, IconPrinter } from "@tabler/icons-react";
+import { useParams } from "react-router";
+import { Alert, Box, Button, Center, Loader } from "@mantine/core";
+import { IconAlertTriangle, IconMail, IconPrinter } from "@tabler/icons-react";
 import { api } from "../../lib/api";
 import type { Quote } from "../../lib/types";
 import { useApp } from "../../core/app-context";
+import { quoteNo } from "../../lib/format";
 import { Page } from "../../core/Page";
 import { QuoteDocument, pdfFileName } from "./QuoteDocument";
 import { EmailDialog } from "./EmailDialog";
@@ -46,26 +47,25 @@ export function PrintPage() {
 
   return (
     <Page
-      title={<Button component={Link} to={`/quotes/${q.id}`} variant="subtle" leftSection={<IconArrowLeft size={16} />}>Back to editor</Button>}
+      crumbs={[{ label: "Quotations", to: "/quotes" }, { label: quoteNo(q.base_number, q.rev), to: `/quotes/${q.id}` }]}
+      title="Print Preview"
       actions={
         <>
-          <Button variant="light" color="stamp" leftSection={<IconMail size={16} />} onClick={() => setEmailOpen(true)}>Email via Outlook</Button>
+          <Button variant="default" leftSection={<IconMail size={16} />} onClick={() => setEmailOpen(true)}>Email</Button>
           <Button leftSection={<IconPrinter size={16} />} onClick={doPrint} autoFocus>Print / Save as PDF</Button>
         </>
       }
     >
       {missing > 0 && (
         <Alert className="no-print" color="orange" variant="light" icon={<IconAlertTriangle size={18} />}>
-          {missing} line{missing === 1 ? " has" : "s have"} no rate — they will print with a blank rate.
+          {missing} line{missing === 1 ? "" : "s"} without rate.
         </Alert>
       )}
-      <Alert className="no-print" color="stamp" variant="light" icon={<IconInfoCircle size={18} />}>
-        In the print window choose <b>Save as PDF</b> to keep a file (named <Code>{pdfFileName(q)}.pdf</Code>), or pick a printer. Set margins to <b>None</b> if your browser asks.
-      </Alert>
+      {/* every printed page: quote number bottom-left, page x of y bottom-right */}
+      <style>{`@media print { @page { @bottom-left { content: ${JSON.stringify(`${quoteNo(q.base_number, q.rev)} · ${q.customer_name}`)}; } } }`}</style>
       <Box className="paper-wrap">
         <QuoteDocument q={q} company={settings.company} cfg={settings.quotes} />
       </Box>
-      <Group />
       {emailOpen && <EmailDialog quote={q} onClose={() => setEmailOpen(false)} onLogged={(u) => { setQ(u); setEmailOpen(false); }} onPrint={() => { setEmailOpen(false); doPrint(); }} />}
     </Page>
   );
