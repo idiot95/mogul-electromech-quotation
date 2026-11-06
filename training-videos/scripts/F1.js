@@ -112,9 +112,9 @@ module.exports = {
 // In the Ctrl+K search results, move the highlight to the result matching `re`, then press Enter.
 // The page change happens under a still of the current screen, so no loading screen is filmed.
 async function pick(h, re) {
-  const sel = () => h.page.evaluate(() => { const e = document.querySelector('[aria-selected="true"]'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; });
+  const sel = () => h.page.evaluate(() => { const e = document.querySelector('.awesomplete [role=listbox] li[aria-selected="true"]'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; });
   // Wait for the results to include the target before moving the highlight.
-  await h.page.waitForFunction(src => [...document.querySelectorAll('li[aria-selected], .awesomplete li, [role=listbox] li')].some(li => new RegExp(src).test(li.textContent.replace(/\s+/g, ' '))), re.source, { timeout: 6000 });
+  await h.page.waitForFunction(src => [...document.querySelectorAll('.awesomplete [role=listbox] li')].some(li => new RegExp(src).test(li.textContent.replace(/\s+/g, ' '))), re.source, { timeout: 6000 });
   for (let i = 0; i < 15 && !re.test(await sel()); i++) { await h.press('ArrowDown'); await h.sleep(260); }
   if (!re.test(await sel())) throw new Error(`search result ${re} not found; highlighted: ${await sel()}`);
   await h.transition(() => h.press('Enter'));
