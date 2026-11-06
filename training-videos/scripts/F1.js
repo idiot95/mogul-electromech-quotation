@@ -2,6 +2,7 @@
 module.exports = {
   code: 'F1',
   title: 'Find your way around the ERP',
+  version: '1.0',
   async warmup(h) { await h.go('/desk'); await h.go('/desk/sales-desk'); await h.go('/desk/sales-order'); },
   // PO-number column on the Sales Order list.
   privacyCSS: '.list-row .level-left .list-row-col:nth-child(7){filter:blur(6px)!important}',

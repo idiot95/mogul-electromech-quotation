@@ -194,17 +194,86 @@ function makeHelpers(page) {
   return h;
 }
 
-// ---------- title / end cards ----------
-function cardHTML({ kicker, title, sub }) {
+// ---------- branding, legal notice, version ----------
+const COMPANY = 'Hatim Carbon Co. Pvt. Ltd.';
+const LOGO = 'data:image/png;base64,' + fs.readFileSync(path.join(ROOT, 'brand', 'hcc-logo.png')).toString('base64');
+const FONT = '/usr/share/fonts/opentype/inter/Inter-SemiBold.otf';
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Version metadata shown on the opening and closing cards, in the file name, MP4 tags and releases.json.
+function versionMeta(spec, scriptPath) {
+  const release = process.argv.includes('--release');
+  const now = new Date();
+  const date = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+  let erp = 'unknown', apps = {};
+  try {
+    const v = JSON.parse(execFileSync('curl', ['-sS', '-m', '20', `${BASE}/api/method/frappe.utils.change_log.get_versions`]).toString()).message;
+    apps = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, x.version])); erp = apps.erpnext || erp;
+  } catch (e) { /* recorded as unknown */ }
+  let build = 'nogit';
+  try {
+    const files = [scriptPath, path.join(ROOT, 'engine.js')];
+    build = execFileSync('git', ['log', '-1', '--format=%h', '--', ...files], { cwd: ROOT }).toString().trim() || 'new';
+    if (execFileSync('git', ['status', '--porcelain', '--', ...files], { cwd: ROOT }).toString().trim()) build += '+local';
+  } catch (e) { /* not a git checkout */ }
+  const site = /staging/.test(BASE) ? 'staging' : new URL(BASE).host;
+  return { code: spec.code, title: spec.title, version: String(spec.version || '1.0'), release, date, iso: now.toISOString(), erp, apps, build, site, year: now.getFullYear() };
+}
+const footerLine = m => `Confidential · For Hatim Carbon employees only · © ${m.year} ${COMPANY} · ${m.code} v${m.version} · ${m.release ? 'Released ' + m.date : 'DRAFT ' + m.date}`;
+
+// Opening frame: logo, confidentiality banner, version block, legal notice.
+function noticeHTML(m) {
+  return `<!doctype html><html><head><style>
+  html,body{margin:0;height:100%;background:#fff;font-family:Inter,'DejaVu Sans',sans-serif;color:#1d2433}
+  .w{height:100%;box-sizing:border-box;padding:48px 150px 0;display:flex;flex-direction:column;align-items:center;text-align:center}
+  img{height:230px}
+  .c{margin-top:30px;background:#b42318;color:#fff;font-weight:700;font-size:40px;letter-spacing:3px;padding:16px 44px;border-radius:10px}
+  .t{margin-top:30px;font-size:44px;font-weight:700}
+  .v{margin-top:26px;display:flex;gap:0;font-size:24px;color:#344054;border:2px solid #d0d5dd;border-radius:12px;overflow:hidden}
+  .v div{padding:14px 26px;border-right:2px solid #d0d5dd}.v div:last-child{border-right:0}.v b{display:block;font-size:16px;color:#667085;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px}
+  .l{margin-top:30px;max-width:1500px;font-size:21px;line-height:1.55;color:#475467}
+  .l p{margin:0 0 10px}
+  .d{position:absolute;top:60px;right:-90px;transform:rotate(35deg);background:#f79009;color:#fff;font-weight:800;font-size:34px;letter-spacing:4px;padding:10px 120px}
+  </style></head><body>${m.release ? '' : '<div class="d">DRAFT</div>'}<div class="w">
+  <img src="${LOGO}">
+  <div class="c">CONFIDENTIAL — FOR HATIM CARBON EMPLOYEES ONLY</div>
+  <div class="t">${esc(m.code)} · ${esc(m.title)}</div>
+  <div class="v"><div><b>Version</b>${esc(m.version)}</div><div><b>${m.release ? 'Released' : 'Draft of'}</b>${esc(m.date)}</div><div><b>Recorded on</b>ERPNext ${esc(m.erp)} (${esc(m.site)})</div><div><b>Build</b>${esc(m.build)}</div></div>
+  <div class="l">
+  <p>This video contains confidential and proprietary information of ${COMPANY} It is for the internal training of authorised employees only. Do not copy, record, share, upload or distribute it, in whole or in part, outside the company without written permission.</p>
+  <p>Screens were recorded on a test system. Customer, supplier, price and personal data are blurred or are demonstration data. Procedures may change after the release date: always use the latest version on the company Wiki. The narration is computer-generated.</p>
+  <p>© ${m.year} ${COMPANY} All rights reserved. ERPNext and Frappe are trademarks of Frappe Technologies Pvt. Ltd. Other names belong to their respective owners.</p>
+  </div></div></body></html>`;
+}
+
+// Title and end cards: dark, with the logo and the legal footer line.
+function cardHTML({ kicker, title, sub }, m) {
   return `<!doctype html><html><head><style>
   html,body{margin:0;height:100%;background:#0f1b2d;font-family:Inter,'DejaVu Sans',sans-serif;color:#fff}
   .w{height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 160px}
+  .logo{position:absolute;top:50px;left:160px;background:#fff;border-radius:12px;padding:10px 16px}.logo img{height:120px;display:block}
   .k{display:inline-block;align-self:flex-start;background:#f5a623;color:#0f1b2d;font-weight:700;font-size:30px;padding:8px 18px;border-radius:8px;letter-spacing:.5px}
   h1{font-size:76px;line-height:1.1;margin:36px 0 22px;font-weight:700;max-width:1500px}
   p{font-size:32px;color:#9fb0c8;margin:0}
-  .f{position:absolute;bottom:60px;left:160px;font-size:24px;color:#6f84a3;letter-spacing:2px;text-transform:uppercase}
-  </style></head><body><div class="w"><span class="k">${kicker}</span><h1>${title}</h1><p>${sub || ''}</p></div>
-  <div class="f">Hatim Carbon ERP · Training</div></body></html>`;
+  .f{position:absolute;bottom:56px;left:160px;right:160px;font-size:21px;color:#8193ad;letter-spacing:.5px}
+  </style></head><body><div class="logo"><img src="${LOGO}"></div><div class="w"><span class="k">${esc(kicker)}</span><h1>${esc(title)}</h1><p>${esc(sub || '')}</p></div>
+  <div class="f">${esc(footerLine(m))}</div></body></html>`;
+}
+
+// releases.json: one entry per released version; a released version can never be overwritten.
+const LEDGER = path.join(ROOT, 'releases.json');
+function checkRelease(m) {
+  if (!m.release) return;
+  const ledger = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER)) : [];
+  if (ledger.some(r => r.code === m.code && r.version === m.version))
+    throw new Error(`${m.code} v${m.version} is already released. Bump "version" in the script to release again.`);
+  if (m.build.endsWith('+local') || m.build === 'new') throw new Error('Commit the script and engine before a --release render, so the build id points at the exact code.');
+}
+function recordRelease(m, file) {
+  const ledger = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER)) : [];
+  const sha256 = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  ledger.push({ code: m.code, title: m.title, version: m.version, released: m.iso, erpnext: m.erp, apps: m.apps, site: m.site, build: m.build, file: path.basename(file), sha256 });
+  fs.writeFileSync(LEDGER, JSON.stringify(ledger, null, 2) + '\n');
 }
 
 // ---------- captions ----------
@@ -233,6 +302,11 @@ async function main() {
   if (PROVIDER === 'piper' && !VOICE) throw new Error('Set PIPER_VOICE to a Piper .onnx voice file');
   const cache = path.join(ROOT, '.cache'); fs.mkdirSync(cache, { recursive: true });
   const work = path.join(ROOT, 'out', spec.code); fs.mkdirSync(work, { recursive: true });
+  const meta = versionMeta(spec, scriptPath);
+  checkRelease(meta);
+  console.log(`[${spec.code}] v${meta.version} ${meta.release ? 'RELEASE' : 'draft'} · ERPNext ${meta.erp} (${meta.site}) · build ${meta.build}`);
+  // Opening frame: logo, confidentiality, version, legal notice (held long enough to read).
+  spec.scenes.unshift({ notice: true, say: 'This training video is confidential, and is for Hatim Carbon employees only.', pad: 3.5 });
 
   // 1) voice every scene up front, so timings are known before recording
   prevoice(spec.scenes.map(sc => sc.say), cache);
@@ -262,8 +336,8 @@ async function main() {
   const h = makeHelpers(page);
   await page.setContent('<html><body style="margin:0;background:#000"></body></html>');
   if (spec.warmup) await spec.warmup(h); // load caches off-camera
-  // White pre-roll: the cut to the dark title card is the sync mark found in step 5.
-  await page.setContent('<html><body style="margin:0;background:#fff"></body></html>');
+  // Black pre-roll: the cut to the white notice card is the sync mark found in step 5.
+  await page.setContent('<html><body style="margin:0;background:#000"></body></html>');
   await sleep(800);
 
   // 3) start capture
@@ -281,7 +355,8 @@ async function main() {
     timeline.push({ start: (t0 - tSync) / 1000, sc });
     const at = async sec => { const w = t0 + sec * 1000 - Date.now(); if (w > 0) await sleep(w); };
     try {
-      if (sc.card) await page.setContent(cardHTML(sc.card));
+      if (sc.notice) await page.setContent(noticeHTML(meta));
+      if (sc.card) await page.setContent(cardHTML(sc.card, meta));
       if (sc.run) await sc.run(h, at);
     } catch (e) {
       console.error(`scene ${i} failed:`, e.message);
@@ -298,7 +373,7 @@ async function main() {
   ff.stdin.write('q'); await new Promise(r => ff.on('close', r));
   await browser.close(); xvfb.kill();
 
-  // 5) find the title card's first frame (white -> dark card is the first scene cut)
+  // 5) find the notice card's first frame (black -> white card is the first scene cut)
   let syncPts = null;
   try {
     const log = execFileSync('bash', ['-c', `ffmpeg -hide_banner -i '${raw}' -vf "select='gt(scene,0.3)',showinfo" -f null - 2>&1 | grep -m1 -o 'pts_time:[0-9.]*'`]).toString();
@@ -319,18 +394,30 @@ async function main() {
   const srtPath = path.join(work, `${spec.code}.srt`); fs.writeFileSync(srtPath, srt);
 
   // 7) final mix
-  const outFile = path.join(ROOT, 'out', `${spec.code} - ${spec.title}.mp4`);
+  const outFile = path.join(ROOT, 'out', `${spec.code} v${meta.version} - ${spec.title}${meta.release ? '' : ' (DRAFT)'}.mp4`);
+  // Corner watermark over the ERP footage (not over the cards).
+  const firstLive = timeline.find(t => !t.sc.card && !t.sc.notice), lastCard = [...timeline].reverse().find(t => t.sc.card);
+  const wmFrom = firstLive ? firstLive.start : 0, wmTo = lastCard && lastCard.start > wmFrom ? lastCard.start : total;
+  const wmText = `HCC · CONFIDENTIAL · EMPLOYEES ONLY · ${spec.code} v${meta.version}${meta.release ? '' : ' DRAFT'}`.replace(/[:'\\%]/g, '');
+  const watermark = `drawtext=fontfile=${FONT}:text='${wmText}':fontsize=17:fontcolor=white@0.95:box=1:boxcolor=0x0f1b2d@0.55:boxborderw=8:x=w-tw-28:y=h-th-104:enable='between(t,${wmFrom.toFixed(2)},${wmTo.toFixed(2)})'`;
   const args = ['-y', '-loglevel', 'error', '-ss', syncPts.toFixed(3), '-t', total.toFixed(3), '-i', raw];
   timeline.forEach(({ sc }) => args.push('-i', sc.audio.file));
   const mixes = timeline.map(({ start }, i) => `[${i + 1}:a]adelay=${Math.round(start * 1000)}:all=1[a${i}]`).join(';');
   const style = "FontName=Inter,FontSize=11,PrimaryColour=&H00FFFFFF,BackColour=&H99000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=14";
   const filter = `${mixes};${timeline.map((_, i) => `[a${i}]`).join('')}amix=inputs=${timeline.length}:normalize=0,apad[aout];` +
-    `[0:v]subtitles='${srtPath.replace(/'/g, "\\'")}':force_style='${style}'[vout]`;
+    `[0:v]subtitles='${srtPath.replace(/'/g, "\\'")}':force_style='${style}',${watermark}[vout]`;
   args.push('-filter_complex', filter, '-map', '[vout]', '-map', '[aout]', '-t', total.toFixed(3),
-    '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', outFile);
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart',
+    '-metadata', `title=${spec.code} v${meta.version} - ${spec.title}`, '-metadata', `artist=${COMPANY}`,
+    '-metadata', `copyright=(c) ${meta.year} ${COMPANY} All rights reserved. Confidential - for Hatim Carbon employees only.`,
+    '-metadata', `comment=Version ${meta.version}; ${meta.release ? 'released' : 'DRAFT'} ${meta.date}; ERPNext ${meta.erp} (${meta.site}); build ${meta.build}`,
+    '-metadata', `date=${meta.iso.slice(0, 10)}`, outFile);
   execFileSync('ffmpeg', args, { stdio: 'inherit' });
   fs.copyFileSync(srtPath, outFile.replace(/\.mp4$/, '.srt'));
+  fs.writeFileSync(outFile.replace(/\.mp4$/, '.json'), JSON.stringify({ ...meta, file: path.basename(outFile), voice: voiceId(), scenes: timeline.map(t => ({ start: +t.start.toFixed(2), say: t.sc.say })) }, null, 2));
+  if (meta.release) { recordRelease(meta, outFile); console.log(`[${spec.code}] recorded v${meta.version} in releases.json`); }
   console.log(`[${spec.code}] wrote ${outFile}`);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+if (require.main === module) main().catch(e => { console.error(e); process.exit(1); });
+module.exports = { noticeHTML, cardHTML, versionMeta, footerLine };
