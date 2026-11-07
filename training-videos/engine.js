@@ -185,20 +185,20 @@ function makeHelpers(page) {
         if (!busy) break;
         await sleep(150);
       }
-      if (Date.now() >= end) console.warn(`  ! page still loading after ${max / 1000}s: ${page.url()} (check this scene's frames)`);
+      if (Date.now() >= end) console.warn(`  ! page still loading after ${max / 1000}s: ${page.url()} (check this scene's frames)` + (inflight.size ? ` · waiting on: ${[...inflight].slice(0, 3).map(r => r.url().replace(BASE, '').slice(0, 90)).join(', ')}` : ''));
       // Then wait until the page has stopped changing: no DOM changes and no scrolling for 700 ms
       // (lists render rows after the network is quiet; the desk restores its scroll position late).
-      await page.evaluate(() => new Promise(done => {
+      await page.evaluate(cap => new Promise(done => {  // cap: longest wait for the page to stop changing
         let last = Date.now(), y = scrollY;
         const mo = new MutationObserver(ms => { if (ms.some(m => !(m.target.closest && m.target.closest('#__cur, .__hl, #__still')))) last = Date.now(); });
         mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
         const t0 = Date.now();
         const tick = () => {
           if (scrollY !== y) { y = scrollY; last = Date.now(); }
-          if (Date.now() - last >= 700 || Date.now() - t0 > 5000) { mo.disconnect(); done(); } else setTimeout(tick, 100);
+          if (Date.now() - last >= 700 || Date.now() - t0 > cap) { mo.disconnect(); done(); } else setTimeout(tick, 100);
         };
         tick();
-      })).catch(() => {});
+      }), Math.min(5000, max)).catch(() => {});
       await sleep(150);
     },
     // Run an action that changes the screen (route change, Enter in search, a click that opens
