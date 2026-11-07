@@ -198,5 +198,55 @@
     "build": "4b47913",
     "file": "F7 v1.0 - Bulk upload with Data Import.mp4",
     "sha256": "2a584a1e0c810b92f0da67ac36ba2543d079c1fe26a29e2206eb9e920a9f28e7"
+  },
+  {
+    "code": "F1",
+    "title": "Find your way around the ERP",
+    "version": "1.1",
+    "released": "2026-11-07T03:12:58.191Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "8a7e9aa",
+    "file": "F1 v1.1 - Find your way around the ERP.mp4",
+    "sha256": "0733b4a51162f77806d34faba05d9882ba2c4e99f5c25361371076a61161f8fe"
+  },
+  {
+    "code": "F6",
+    "title": "Print, download a PDF and email a document",
+    "version": "1.1",
+    "released": "2026-11-07T03:17:48.578Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "8a7e9aa",
+    "file": "F6 v1.1 - Print, download a PDF and email a document.mp4",
+    "sha256": "691bc54c168f22b0b188724c2a36ac5e846951a75284d67c3d2fc061c0bad35f"
   }
 ]
