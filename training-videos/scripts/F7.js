@@ -9,7 +9,7 @@ const FILE = path.join(__dirname, '..', 'assets', 'DEMO item prices.csv');
 module.exports = {
   code: 'F7',
   title: 'Bulk upload with Data Import',
-  version: '1.0',
+  version: '1.1',
   start: '/desk/data-import',
   async warmup(h) {
     await h.go('/desk/data-import'); await removeDemo(h);

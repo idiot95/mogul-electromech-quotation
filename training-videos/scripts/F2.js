@@ -6,7 +6,7 @@ const SAVED = 'DEMO-Open orders to deliver';
 module.exports = {
   code: 'F2',
   title: 'Search bar, list views, filters and saved views',
-  version: '1.0',
+  version: '1.1',
   start: '/desk/sales-order',
   keepSettings: ['Sales Order'],
   async warmup(h) { await h.go('/desk/sales-order'); await removeSaved(h); },

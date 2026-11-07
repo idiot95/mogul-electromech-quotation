@@ -8,7 +8,7 @@ const CUSTOMER = 'DEMO-Customer India';
 module.exports = {
   code: 'F9',
   title: 'The document chain: keep everything linked',
-  version: '1.0',
+  version: '1.1',
   start: '/desk/quotation',
   keepSettings: ['Quotation', 'Sales Order'],
   async warmup(h) {

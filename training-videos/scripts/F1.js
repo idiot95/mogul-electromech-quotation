@@ -2,7 +2,7 @@
 module.exports = {
   code: 'F1',
   title: 'Find your way around the ERP',
-  version: '1.0',
+  version: '1.1',
   async warmup(h) { await h.go('/desk'); await h.go('/desk/sales-desk'); await h.go('/desk/sales-order'); },
   // PO-number column on the Sales Order list.
   privacyCSS: '.list-row .level-left .list-row-col:nth-child(7){filter:blur(6px)!important}',
@@ -103,7 +103,7 @@ module.exports = {
       },
     },
     {
-      card: { code: 'F2', kicker: 'Next · F2', title: 'Search bar, list views, filters and saved views', sub: 'You have finished F1. Find all videos on the Wiki.' },
+      card: { code: 'F2', kicker: 'Next · F2', title: 'Search bar, list views, filters and saved views', sub: 'You have finished F1. All training videos are in Learning.' },
       say: 'That is it. You can now find your desk, jump to any screen with search, and ask for help. Next, video F2 shows how to work with lists, filters and saved views.',
     },
   ],

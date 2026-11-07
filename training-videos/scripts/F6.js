@@ -9,7 +9,7 @@ const TO = 'demo.trainee@hatimcarbon.com';
 module.exports = {
   code: 'F6',
   title: 'Print, download a PDF and email a document',
-  version: '1.0',
+  version: '1.1',
   start: '/desk/quotation',
   keepSettings: ['Quotation'],
   // Email suggestions are real contacts: blurred unless marked as the DEMO address (see blurContacts).
