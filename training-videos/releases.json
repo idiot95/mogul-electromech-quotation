@@ -298,5 +298,30 @@
     "build": "8a7e9aa",
     "file": "F9 v1.1 - The document chain: keep everything linked.mp4",
     "sha256": "55cf2d2afd8c6b6b9e24021cebc92ae82f5627d25c11a2e73fea187a0d7585d6"
+  },
+  {
+    "code": "F8",
+    "title": "Raise an ERP Ticket when something is wrong",
+    "version": "1.0",
+    "released": "2026-11-07T03:26:34.172Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "1b046bb",
+    "file": "F8 v1.0 - Raise an ERP Ticket when something is wrong.mp4",
+    "sha256": "59eca5a9f1067d802d12cfbaa78f1e89cca2c96458ac48c6b32e79e2c72778a0"
   }
 ]
