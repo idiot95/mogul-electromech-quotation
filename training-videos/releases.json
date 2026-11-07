@@ -323,5 +323,30 @@
     "build": "1b046bb",
     "file": "F8 v1.0 - Raise an ERP Ticket when something is wrong.mp4",
     "sha256": "59eca5a9f1067d802d12cfbaa78f1e89cca2c96458ac48c6b32e79e2c72778a0"
+  },
+  {
+    "code": "F2",
+    "title": "Search bar, list views, filters and saved views",
+    "version": "1.1",
+    "released": "2026-11-07T03:28:58.829Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "8a7e9aa",
+    "file": "F2 v1.1 - Search bar, list views, filters and saved views.mp4",
+    "sha256": "3df25b3cbb01abfa7f51aceed92fca1aa038417ef0c5e50a9a720f966043622a"
   }
 ]
