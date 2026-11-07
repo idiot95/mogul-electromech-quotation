@@ -141,7 +141,8 @@ function makeHelpers(page) {
   // Track in-flight requests ourselves: Playwright's 'networkidle' only covers full page loads,
   // not the background requests an in-app (SPA) navigation makes.
   const inflight = new Set(); let lastNet = Date.now();
-  const skip = r => /\.(png|jpe?g|svg|woff2?|ico)(\?|$)/.test(r.url()) || r.url().startsWith('data:');
+  // Ignore images and fonts, and the realtime socket (it retries for ever when it cannot connect).
+  const skip = r => /\.(png|jpe?g|svg|woff2?|ico)(\?|$)/.test(r.url()) || r.url().startsWith('data:') || /\/socket\.io\//.test(r.url());
   page.on('request', r => { if (!skip(r)) { inflight.add(r); lastNet = Date.now(); } });
   const done = r => { if (inflight.delete(r)) lastNet = Date.now(); };
   page.on('requestfinished', done); page.on('requestfailed', done);
@@ -168,7 +169,8 @@ function makeHelpers(page) {
     // Wait until the page has finished loading: network quiet, no skeletons or "Loading..." text.
     async ready(max = 8000) {
       const t0 = Date.now(), end = t0 + max;
-      await page.waitForLoadState('networkidle', { timeout: max }).catch(() => {});
+      // Capped: the CRM app's page load never goes network-idle; netQuiet below does the real check.
+      await page.waitForLoadState('networkidle', { timeout: Math.min(max, 3000) }).catch(() => {});
       await netQuiet(500, max);
       while (Date.now() < end) {
         const busy = await page.evaluate(() => {
@@ -413,8 +415,16 @@ async function main() {
     ignoreDefaultArgs: ['--enable-automation'],
     args: ['--kiosk', `--window-size=${W},${H}`, '--window-position=0,0', '--force-device-scale-factor=1', '--disable-infobars', '--no-first-run', '--hide-crash-restore-bubble', '--disable-features=DownloadBubble,DownloadBubbleV2,DownloadShelf'],
   });
-  const context = await browser.newContext({ viewport: null, acceptDownloads: true });
+  // Service workers off: the CRM app is a PWA whose worker holds up navigation under automation.
+  const context = await browser.newContext({ viewport: null, acceptDownloads: true, serviceWorkers: 'block' });
   await context.addInitScript(INIT);
+  // The session proxy signs requests with a token, so the server's cookies say "Guest". The desk does
+  // not mind, but the CRM app reads the user from the cookie and loops to /login. Tell it who we are.
+  const who = (() => { try { const j = JSON.parse(require('child_process').execFileSync('curl', ['-sS', '-m', '30', BASE + '/api/method/frappe.auth.get_logged_user']).toString()); return j.message || ''; } catch (e) { return ''; } })();
+  if (who && who !== 'Guest') await context.addInitScript(u => {
+    const d = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+    Object.defineProperty(document, 'cookie', { configurable: true, get() { return d.get.call(document).replace(/user_id=Guest/, 'user_id=' + encodeURIComponent(u)); }, set(v) { d.set.call(document, v); } });
+  }, who);
   await context.addInitScript(css => {
     const add = () => { if (document.getElementById('__privacy') || !document.head) return; const st = document.createElement('style'); st.id = '__privacy'; st.textContent = css; document.head.appendChild(st); };
     document.addEventListener('DOMContentLoaded', add); setInterval(add, 300);
