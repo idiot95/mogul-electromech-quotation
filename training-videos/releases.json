@@ -248,5 +248,55 @@
     "build": "8a7e9aa",
     "file": "F6 v1.1 - Print, download a PDF and email a document.mp4",
     "sha256": "691bc54c168f22b0b188724c2a36ac5e846951a75284d67c3d2fc061c0bad35f"
+  },
+  {
+    "code": "F7",
+    "title": "Bulk upload with Data Import",
+    "version": "1.1",
+    "released": "2026-11-07T03:20:26.791Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "8a7e9aa",
+    "file": "F7 v1.1 - Bulk upload with Data Import.mp4",
+    "sha256": "cd098c05f6abe21708b802eea210c773415a463800ebd921ca3f2b9c592f2022"
+  },
+  {
+    "code": "F9",
+    "title": "The document chain: keep everything linked",
+    "version": "1.1",
+    "released": "2026-11-07T03:23:05.899Z",
+    "erpnext": "16.30.0",
+    "apps": {
+      "frappe": "16.29.0",
+      "erpnext": "16.30.0",
+      "india_compliance": "16.8.2",
+      "email_delivery_service": "0.0.1",
+      "hrms": "16.15.0",
+      "crm": "1.81.0",
+      "hatim_carbon": "0.0.1",
+      "wiki": "3.0.0",
+      "iso_compliance": "0.0.1",
+      "hcc_erp_edits": "0.1.0",
+      "payments": "0.0.1",
+      "lms": "2.62.1"
+    },
+    "site": "staging",
+    "build": "8a7e9aa",
+    "file": "F9 v1.1 - The document chain: keep everything linked.mp4",
+    "sha256": "55cf2d2afd8c6b6b9e24021cebc92ae82f5627d25c11a2e73fea187a0d7585d6"
   }
 ]
