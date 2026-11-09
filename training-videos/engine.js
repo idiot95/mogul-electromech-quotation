@@ -141,8 +141,9 @@ function makeHelpers(page) {
   // Track in-flight requests ourselves: Playwright's 'networkidle' only covers full page loads,
   // not the background requests an in-app (SPA) navigation makes.
   const inflight = new Set(); let lastNet = Date.now();
-  // Ignore images and fonts, and the realtime socket (it retries for ever when it cannot connect).
-  const skip = r => /\.(png|jpe?g|svg|woff2?|ico)(\?|$)/.test(r.url()) || r.url().startsWith('data:') || /\/socket\.io\//.test(r.url());
+  // Ignore images, fonts and media (the CRM requests an image at /undefined that never finishes), and
+  // the realtime socket (it retries for ever when it cannot connect).
+  const skip = r => ['image', 'font', 'media'].includes(r.resourceType()) || /\.(png|jpe?g|svg|woff2?|ico)(\?|$)/.test(r.url()) || r.url().startsWith('data:') || /\/socket\.io\//.test(r.url());
   page.on('request', r => { if (!skip(r)) { inflight.add(r); lastNet = Date.now(); } });
   const done = r => { if (inflight.delete(r)) lastNet = Date.now(); };
   page.on('requestfinished', done); page.on('requestfailed', done);
