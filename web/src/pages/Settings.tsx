@@ -81,6 +81,12 @@ export function SettingsPage() {
             checked={quotes.showVatAmount}
             onChange={(e) => setQuotes({ ...quotes, showVatAmount: e.currentTarget.checked })}
           />
+          <Switch
+            label="Require Approval Before Printing or Emailing"
+            description="An admin approves each quotation before it goes to a customer"
+            checked={!!quotes.requireApproval}
+            onChange={(e) => setQuotes({ ...quotes, requireApproval: e.currentTarget.checked })}
+          />
         </Stack>
       </Paper>
 

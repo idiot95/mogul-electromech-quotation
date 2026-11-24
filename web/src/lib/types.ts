@@ -65,12 +65,23 @@ export interface QuoteSettings {
   vatTerms: string;
   footerNote: string;
   showVatAmount: boolean;
+  requireApproval?: boolean; // printing and emailing need an admin's approval
   defaultUnit: string;
 }
 
 export interface Settings {
   company: CompanySettings;
   quotes: QuoteSettings;
+}
+
+export type ApprovalStatus = "none" | "pending" | "approved" | "returned";
+
+export interface ApprovalStep {
+  id: number;
+  action: "submitted" | "withdrawn" | "approved" | "returned" | "reset";
+  note: string | null;
+  created_at: string;
+  user_name: string | null;
 }
 
 export type QuoteStatus = "draft" | "printed" | "emailed" | "won" | "partly_won" | "lost" | "cancelled";
@@ -126,6 +137,11 @@ export interface Quote extends QuoteHeader {
   orders: Order[];
   lost_reason: string | null;
   lost_note: string | null;
+  approval_status: ApprovalStatus;
+  approval_at: string | null;
+  approvals: ApprovalStep[];
+  created_by: number | null;
+  created_by_name: string | null;
 }
 
 /** A customer PO recorded against a quote. */
@@ -169,6 +185,7 @@ export interface QuoteListRow {
   ordered_value: number;
   lost_reason: string | null;
   created_by_name: string | null;
+  approval_status: ApprovalStatus;
 }
 
 export interface FileRow {

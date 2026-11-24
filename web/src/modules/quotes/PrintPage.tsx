@@ -44,6 +44,7 @@ export function PrintPage() {
 
   if (!q || !settings) return <Center py={80}><Loader /></Center>;
   const missing = q.lines.filter((l) => l.kind === "item" && l.rate == null).length;
+  const needsApproval = !!settings.quotes.requireApproval && q.approval_status !== "approved";
 
   return (
     <Page
@@ -51,11 +52,16 @@ export function PrintPage() {
       title="Print Preview"
       actions={
         <>
-          <Button variant="default" leftSection={<IconMail size={16} />} onClick={() => setEmailOpen(true)}>Email</Button>
-          <Button leftSection={<IconPrinter size={16} />} onClick={doPrint} autoFocus>Print / Save as PDF</Button>
+          <Button variant="default" leftSection={<IconMail size={16} />} onClick={() => setEmailOpen(true)} disabled={needsApproval}>Email</Button>
+          <Button leftSection={<IconPrinter size={16} />} onClick={doPrint} autoFocus disabled={needsApproval}>Print / Save as PDF</Button>
         </>
       }
     >
+      {needsApproval && (
+        <Alert className="no-print" color="yellow" variant="light" icon={<IconAlertTriangle size={18} />}>
+          This quotation needs an admin's approval before it is printed or emailed.
+        </Alert>
+      )}
       {missing > 0 && (
         <Alert className="no-print" color="orange" variant="light" icon={<IconAlertTriangle size={18} />}>
           {missing} line{missing === 1 ? "" : "s"} without rate.

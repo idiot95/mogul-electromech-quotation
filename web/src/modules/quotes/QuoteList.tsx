@@ -10,6 +10,7 @@ import { downloadSheet } from "../../lib/sheets";
 import { useApp } from "../../core/app-context";
 import { Page } from "../../core/Page";
 import { RevBadge, STATUS_LABEL, StatusBadge } from "./status";
+import { ApprovalBadge } from "./Approval";
 
 export function QuoteList() {
   const { reps, toast, isAdmin } = useApp();
@@ -18,6 +19,9 @@ export function QuoteList() {
   const [rows, setRows] = useState<QuoteListRow[] | null>(null);
   const q = sp.get("q") || "";
   const status = sp.get("status") || "";
+  // approval filters share the Status box ("approval:pending" …) and go to the API as ?approval=
+  const approval = status.startsWith("approval:") ? status.slice(9) : "";
+  const queue = approval === "pending";
   const rep = sp.get("sales_rep_id") || "";
   const customer = sp.get("customer_id") || "";
   const from = sp.get("from") || "";
@@ -34,7 +38,7 @@ export function QuoteList() {
   useEffect(() => {
     const t = setTimeout(() => {
       api
-        .get<QuoteListRow[]>("/quotes" + qs({ q, status, sales_rep_id: rep, customer_id: customer, from, to, all_revisions: allRevs ? 1 : 0 }))
+        .get<QuoteListRow[]>("/quotes" + qs({ q, status: approval ? "" : status, approval, sales_rep_id: rep, customer_id: customer, from, to, all_revisions: allRevs ? 1 : 0 }))
         .then(setRows, (e) => toast(e.message, true));
     }, 200);
     return () => clearTimeout(t);
@@ -52,7 +56,7 @@ export function QuoteList() {
   return (
     <Page
       crumbs={[{ label: "Dashboard", to: "/" }]}
-      title="Quotations"
+      title={queue ? "Waiting for Approval" : "Quotations"}
       actions={
         <>
           <Button variant="default" leftSection={<IconFileSpreadsheet size={16} />} onClick={exportExcel} disabled={!rows?.length}>Export to Excel</Button>
@@ -75,6 +79,7 @@ export function QuoteList() {
           <Select label="Status" placeholder="All" clearable value={status || null} onChange={(v) => set("status", v)}
             data={[
               { group: "Outcome", items: [{ value: "open", label: "Awaiting Response" }, { value: "ordered", label: "Won or Partly Won" }, { value: "won", label: "Won" }, { value: "partly_won", label: "Partly Won" }, { value: "lost", label: "Lost" }] },
+              { group: "Approval", items: [{ value: "approval:pending", label: "Waiting for Approval" }, { value: "approval:approved", label: "Approved" }, { value: "approval:returned", label: "Changes Requested" }] },
               { group: "Stage", items: [{ value: "draft", label: "Draft" }, { value: "printed", label: "Printed" }, { value: "emailed", label: "Sent" }, { value: "cancelled", label: "Cancelled" }] },
             ]} />
           <DatePickerInput
@@ -135,7 +140,10 @@ export function QuoteList() {
                     {r.ordered_value > 0 && <Text ff="monospace" fz="xs" c="green.8">Ordered {money(r.ordered_value)}</Text>}
                   </Table.Td>
                   <Table.Td>
-                    <StatusBadge s={r.status} />
+                    <Group gap={4} wrap="nowrap">
+                      <StatusBadge s={r.status} />
+                      <ApprovalBadge s={r.approval_status} />
+                    </Group>
                     {r.status === "lost" && r.lost_reason ? <Text span c="dimmed" fz="xs" ml={6}>{r.lost_reason}</Text> : null}
                     {r.superseded_by ? <Text span c="dimmed" fz="xs" ml={6}>Superseded</Text> : null}
                   </Table.Td>

@@ -19,7 +19,8 @@ import { Workings } from "./Workings";
 import { EmailDialog } from "./EmailDialog";
 import { StatusBadge } from "./status";
 import { Outcome } from "./Outcome";
-import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Loader, Menu, Modal, NumberInput, Paper, Progress, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title } from "@mantine/core";
+import { Approval, ApprovalBadge } from "./Approval";
+import { ActionIcon, Alert, Anchor, Badge, Button, Center, Divider, Grid, Group, Loader, Menu, Modal, NumberInput, Paper, Progress, Select, SimpleGrid, Stack, Text, TextInput, Textarea, Timeline, Title, Tooltip } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { modals } from "@mantine/modals";
 import { IconAlertTriangle, IconBan, IconDots, IconFileSpreadsheet, IconCopy, IconDeviceFloppy, IconGitBranch, IconLock, IconMail, IconPrinter, IconRefresh, IconTrash, IconUser } from "@tabler/icons-react";
@@ -77,7 +78,11 @@ export function QuoteEditor() {
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
 
-  const readOnly = !!quote?.superseded_by;
+  const superseded = !!quote?.superseded_by;
+  const pendingApproval = quote?.approval_status === "pending";
+  // locked while an admin looks at it: what is approved is what goes out
+  const readOnly = superseded || pendingApproval;
+  const needsApproval = !!cfg?.requireApproval && quote?.approval_status !== "approved";
 
   // ---------- load ----------
   useEffect(() => {
@@ -217,7 +222,8 @@ export function QuoteEditor() {
 
   // ---------- save ----------
   const save = useCallback(async (): Promise<Quote | null> => {
-    if (readOnly) return quote;
+    // nothing to save (and re-saving would cancel an approval for no reason)
+    if (readOnly || (quote && !dirtyRef.current)) return quote;
     if (!h.customer_name.trim()) {
       toast("Choose a customer first", true);
       return null;
@@ -395,18 +401,23 @@ export function QuoteEditor() {
       badges={
         <>
           {quote && <StatusBadge s={quote.status} size="md" />}
-          {readOnly && <Badge color="gray" variant="light" leftSection={<IconLock size={12} />}>Read-only</Badge>}
+          {quote && <ApprovalBadge s={quote.approval_status} size="md" />}
+          {readOnly && <Badge color="gray" variant="light" leftSection={<IconLock size={12} />}>{pendingApproval ? "Locked" : "Read-only"}</Badge>}
           {dirty && <Badge color="orange" variant="light">Unsaved</Badge>}
         </>
       }
       actions={
         <>
           <Button variant="default" leftSection={<IconFileSpreadsheet size={16} />} onClick={exportExcel} disabled={!lines.some((l) => !isBlank(l))}>Export to Excel</Button>
-          <Button variant="default" leftSection={<IconMail size={16} />} disabled={!quote}
-            onClick={async () => { if (dirty && !(await save())) return; setEmailOpen(true); }}>
-            Email
-          </Button>
-          <Button variant="default" leftSection={<IconPrinter size={16} />} onClick={print} loading={saving}>Print / PDF</Button>
+          <Tooltip label="Needs approval first" disabled={!needsApproval}>
+            <Button variant="default" leftSection={<IconMail size={16} />} disabled={!quote || needsApproval}
+              onClick={async () => { if (dirty && !(await save())) return; setEmailOpen(true); }}>
+              Email
+            </Button>
+          </Tooltip>
+          <Tooltip label="Needs approval first" disabled={!needsApproval}>
+            <Button variant="default" leftSection={<IconPrinter size={16} />} onClick={print} loading={saving} disabled={needsApproval}>Print / PDF</Button>
+          </Tooltip>
           {!readOnly && <Button onClick={() => save()} loading={saving} leftSection={<IconDeviceFloppy size={16} />}>Save</Button>}
           {quote && (
             <Menu position="bottom-end" shadow="md" width={230}>
@@ -442,7 +453,12 @@ export function QuoteEditor() {
         </>
       }
     >
-      {readOnly && latestRev && (
+      {pendingApproval && !superseded && (
+        <Alert color="yellow" variant="light" icon={<IconLock size={18} />}>
+          Waiting for approval. It can't be changed until it is approved or returned, or you withdraw it.
+        </Alert>
+      )}
+      {superseded && latestRev && (
         <Alert color="orange" variant="light" icon={<IconLock size={18} />}>
           This revision has been superseded.{" "}
           <Anchor component={Link} to={`/quotes/${latestRev.id}`} fw={600}>Open {quoteNo(quote!.base_number, latestRev.rev)}</Anchor>
@@ -537,6 +553,10 @@ export function QuoteEditor() {
                 <Text c="orange.7" fz="sm" mt="md"><IconAlertTriangle size={14} style={{ verticalAlign: -2 }} /> {t.missingRate} line{t.missingRate === 1 ? "" : "s"} without rate</Text>
               )}
             </Paper>
+
+            {quote && (
+              <Approval quote={quote} dirty={dirty} beforeAction={async () => !dirty || !!(await save())} onChange={applyQuote} />
+            )}
 
             {quote && (
               <Outcome

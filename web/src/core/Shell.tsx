@@ -1,10 +1,11 @@
 import { Suspense, useEffect, useState } from "react";
 import { NavLink as RouterLink, Outlet, useLocation } from "react-router";
-import { ActionIcon, AppShell, Avatar, Box, Burger, Button, Center, Group, Loader, Menu, Modal, ScrollArea, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
+import { ActionIcon, AppShell, Avatar, Badge, Box, Burger, Button, Center, Group, Loader, Menu, Modal, ScrollArea, Stack, Text, Tooltip, UnstyledButton } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
-import { IconHome, IconFileText, IconUsers, IconSettings, IconPlus, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconUserShield, IconKey, IconLogout, IconSelector } from "@tabler/icons-react";
+import { IconHome, IconFileText, IconUsers, IconSettings, IconPlus, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconUserShield, IconKey, IconLogout, IconSelector, IconChecklist } from "@tabler/icons-react";
 import { modules } from "../modules";
 import { useApp } from "./app-context";
+import { api } from "../lib/api";
 import { ChangePassword } from "./SignIn";
 
 const ICONS: Record<string, typeof IconHome> = { "/quotes": IconFileText };
@@ -49,13 +50,25 @@ export function Shell() {
     }
   };
 
-  const link = (to: string, label: string, Icon: typeof IconHome, end = false) => {
-    const active = end ? loc.pathname === to : loc.pathname === to || loc.pathname.startsWith(to + "/");
+  // quotations waiting for an admin's approval: refreshed on every page change and every minute
+  const [waiting, setWaiting] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    const load = () => api.get<unknown[]>("/quotes?approval=pending&limit=500").then((r) => setWaiting(r.length), () => {});
+    load();
+    const t = setInterval(load, 60_000);
+    return () => clearInterval(t);
+  }, [isAdmin, loc.pathname, loc.search]);
+
+  const inQueue = loc.search.includes("approval%3Apending") || loc.search.includes("approval:pending");
+  const link = (to: string, label: string, Icon: typeof IconHome, end = false, opts: { count?: number; active?: boolean } = {}) => {
+    const active = opts.active ?? (end ? loc.pathname === to : (loc.pathname === to || loc.pathname.startsWith(to + "/")) && !inQueue);
     return (
       <Tooltip key={to} label={label} position="right" disabled={!collapsed} withArrow>
         <UnstyledButton component={RouterLink} to={to} className="side-link" data-active={active || undefined} data-collapsed={collapsed || undefined} aria-label={label}>
           <Icon size={19} stroke={1.7} />
-          {!collapsed && <span>{label}</span>}
+          {!collapsed && <span style={{ flex: 1 }}>{label}</span>}
+          {!!opts.count && <Badge size="sm" circle={collapsed} color="yellow.7" variant="filled" className={collapsed ? "side-count" : undefined}>{opts.count}</Badge>}
         </UnstyledButton>
       </Tooltip>
     );
@@ -99,6 +112,7 @@ export function Shell() {
           <Stack gap={4}>
             {link("/", "Dashboard", IconHome, true)}
             {modules.flatMap((m) => m.nav.map((n) => link(n.path, n.label, ICONS[n.path] || IconFileText)))}
+            {isAdmin && link("/quotes?status=approval:pending", "Approvals", IconChecklist, false, { count: waiting, active: inQueue })}
             {collapsed ? <Box h={1} bg="gray.3" my="sm" mx="xs" /> : <Text className="side-group">Administration</Text>}
             {link("/customers", "Customers", IconUsers)}
             {isAdmin && link("/users", "Users", IconUserShield)}

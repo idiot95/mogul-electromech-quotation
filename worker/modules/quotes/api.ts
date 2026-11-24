@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { AppContext, SessionUser } from "../../env";
 import { ownQuote } from "../../core/auth";
-import { body, bad, intParam, notFound, num, round2, str } from "../../core/util";
+import { body, bad, HttpError, intParam, notFound, num, round2, str } from "../../core/util";
 import { getSetting } from "../../core/settings";
 import { nextNumber } from "../../core/numbering";
 
@@ -25,6 +25,7 @@ interface QuoteRow {
   rev: number;
   status: string;
   superseded_by: number | null;
+  approval_status: "none" | "pending" | "approved" | "returned";
   [k: string]: unknown;
 }
 
@@ -95,9 +96,10 @@ function loadStatements(db: D1Database, idSql: string, args: unknown[], user: Se
     db
       .prepare(
         `SELECT q.*, r.display_name AS sales_rep_name, r.email AS sales_rep_email, r.phone AS sales_rep_phone,
-                r.email_template AS sales_rep_email_template, c.email AS customer_email
+                r.email_template AS sales_rep_email_template, c.email AS customer_email, cb.display_name AS created_by_name
          FROM q_quotes q
          LEFT JOIN users r ON r.id = q.sales_rep_id
+         LEFT JOIN users cb ON cb.id = q.created_by
          LEFT JOIN customers c ON c.id = q.customer_id
          WHERE q.id = ${idSql} AND ${own.sql}`,
       )
@@ -108,13 +110,14 @@ function loadStatements(db: D1Database, idSql: string, args: unknown[], user: Se
     q("SELECT * FROM q_orders WHERE quote_id = $ID ORDER BY COALESCE(po_date, created_at), id", 1),
     q("SELECT ol.* FROM q_order_lines ol JOIN q_orders o ON o.id = ol.order_id WHERE o.quote_id = $ID ORDER BY ol.order_id, ol.pos", 1),
     q("SELECT f.id, f.name, f.mime, f.size, f.created_at, f.owner_id FROM files f JOIN q_orders o ON o.id = f.owner_id WHERE f.owner_type = 'q_order' AND o.quote_id = $ID", 1),
+    q("SELECT a.id, a.action, a.note, a.created_at, u.display_name AS user_name FROM q_approval_log a LEFT JOIN users u ON u.id = a.user_id WHERE a.quote_id = $ID ORDER BY a.id", 1),
   ];
 }
-const LOAD_COUNT = 7;
+const LOAD_COUNT = 8;
 
 /** Builds the quote from the results of loadStatements (the last LOAD_COUNT results of a batch). */
 function assemble(results: D1Result[]) {
-  const [quote, lines, emails, revisions, orders, orderLines, poFiles] = results.slice(-LOAD_COUNT);
+  const [quote, lines, emails, revisions, orders, orderLines, poFiles, approvals] = results.slice(-LOAD_COUNT);
   const q = quote.results[0] as QuoteRow | undefined;
   if (!q) throw notFound("Quote not found");
   type OL = { order_id: number };
@@ -129,6 +132,7 @@ function assemble(results: D1Result[]) {
       lines: (orderLines.results as OL[]).filter((l) => l.order_id === o.id),
       files: (poFiles.results as OF[]).filter((f) => f.owner_id === o.id),
     })),
+    approvals: approvals.results,
   };
 }
 
@@ -201,6 +205,20 @@ async function getOpenForOutcome(db: D1Database, id: number, user: SessionUser) 
   return q;
 }
 
+const APPROVAL: Record<string, { from: string[]; to: string; log: string; admin: boolean; wrongState: string }> = {
+  submit: { from: ["none", "returned"], to: "pending", log: "submitted", admin: false, wrongState: "This quotation is already waiting for approval or approved." },
+  withdraw: { from: ["pending"], to: "none", log: "withdrawn", admin: false, wrongState: "This quotation isn't waiting for approval." },
+  approve: { from: ["pending"], to: "approved", log: "approved", admin: true, wrongState: "Only a quotation waiting for approval can be approved." },
+  return: { from: ["pending"], to: "returned", log: "returned", admin: true, wrongState: "Only a quotation waiting for approval can be returned." },
+};
+
+/** With "require approval" switched on in Settings, a quotation must be approved before it is printed or emailed. */
+async function checkApproved(db: D1Database, q: QuoteRow, what: string) {
+  if (q.approval_status === "approved") return;
+  const cfg = await getSetting(db, "quotes", { requireApproval: false });
+  if (cfg.requireApproval) throw bad(`This quotation needs approval before it is ${what}.`);
+}
+
 /** The quotation, if the user may see it (their own, or any for an admin). */
 async function getForWrite(db: D1Database, id: number, user: SessionUser) {
   const own = ownQuote(user);
@@ -231,6 +249,11 @@ export const quotesApi = new Hono<AppContext>()
       );
       args.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
     }
+    const approval = c.req.query("approval") || "";
+    if (["pending", "approved", "returned"].includes(approval)) {
+      where.push("q.approval_status = ?");
+      args.push(approval);
+    }
     if (status === "open") where.push("q.status IN ('printed', 'emailed')");
     else if (status === "ordered") where.push("q.status IN ('won', 'partly_won')");
     else if (STATUSES.includes(status as never)) {
@@ -258,7 +281,7 @@ export const quotesApi = new Hono<AppContext>()
               q.sales_rep_id, r.display_name AS sales_rep_name, q.subtotal, q.total, q.currency, q.superseded_by, q.updated_at,
               (SELECT COUNT(*) FROM q_lines l WHERE l.quote_id = q.id AND l.kind = 'item') AS line_count,
               (SELECT COALESCE(SUM(o.subtotal), 0) FROM q_orders o WHERE o.quote_id = q.id) AS ordered_value,
-              q.lost_reason, u.display_name AS created_by_name
+              q.lost_reason, u.display_name AS created_by_name, q.approval_status
        FROM q_quotes q LEFT JOIN users r ON r.id = q.sales_rep_id LEFT JOIN users u ON u.id = q.created_by
        ${where.length ? "WHERE " + where.join(" AND ") : ""}
        ORDER BY q.quote_date DESC, q.id DESC LIMIT ?`,
@@ -275,7 +298,7 @@ export const quotesApi = new Hono<AppContext>()
     const own = ownQuote(c.get("user"), "q.created_by"); // users see the figures for their own quotations
     const base = `FROM q_quotes q WHERE q.superseded_by IS NULL AND q.status != 'cancelled' AND q.quote_date >= ? AND ${own.sql}`;
     const db = c.env.DB;
-    const [kpi, byCustomer, largest, byStatus, byRep, received, followUp, lostWhy] = await db.batch([
+    const [kpi, byCustomer, largest, byStatus, byRep, received, followUp, lostWhy, approvals] = await db.batch([
       db.prepare(`SELECT COUNT(*) AS quotes, COALESCE(SUM(q.subtotal),0) AS amount, COUNT(DISTINCT q.customer_name) AS customers ${base}`).bind(since, ...own.args),
       db.prepare(`SELECT q.customer_name AS name, SUM(q.subtotal) AS amount, COUNT(*) AS quotes ${base} GROUP BY q.customer_name ORDER BY amount DESC LIMIT 8`).bind(since, ...own.args),
       db.prepare(
@@ -304,6 +327,12 @@ export const quotesApi = new Hono<AppContext>()
          ORDER BY q.subtotal DESC LIMIT 8`,
       ).bind(today(), today(), ...own.args),
       db.prepare(`SELECT COALESCE(q.lost_reason, 'Other') AS name, COUNT(*) AS quotes, SUM(q.subtotal) AS amount ${base} AND q.status = 'lost' GROUP BY 1 ORDER BY amount DESC`).bind(since, ...own.args),
+      // waiting for an admin / sent back to the rep, whatever the period
+      db.prepare(
+        `SELECT q.approval_status, COUNT(*) AS n FROM q_quotes q
+         WHERE q.superseded_by IS NULL AND q.status != 'cancelled' AND q.approval_status IN ('pending', 'returned') AND ${own.sql}
+         GROUP BY q.approval_status`,
+      ).bind(...own.args),
     ]);
     return c.json({
       since,
@@ -316,6 +345,7 @@ export const quotesApi = new Hono<AppContext>()
       received: received.results[0],
       followUp: followUp.results,
       lostWhy: lostWhy.results,
+      approvals: Object.fromEntries((approvals.results as { approval_status: string; n: number }[]).map((r) => [r.approval_status, r.n])),
     });
   })
 
@@ -360,12 +390,19 @@ export const quotesApi = new Hono<AppContext>()
     const t = totals(lines, h.vat_rate);
     const db = c.env.DB;
     const own = ownQuote(c.get("user"));
-    const editable = `EXISTS (SELECT 1 FROM q_quotes WHERE id = ? AND superseded_by IS NULL AND ${own.sql})`;
+    // not while it waits for approval: what the admin approves is what goes out
+    const editable = `EXISTS (SELECT 1 FROM q_quotes WHERE id = ? AND superseded_by IS NULL AND approval_status != 'pending' AND ${own.sql})`;
     const res = await db.batch([
+      // an approved quotation that is changed needs approval again
+      db
+        .prepare(`INSERT INTO q_approval_log (quote_id, action, user_id, note) SELECT ?, 'reset', ?, 'Changed after approval' WHERE ${editable.replace("approval_status != 'pending'", "approval_status = 'approved'")}`)
+        .bind(id, c.get("user").id, id, ...own.args),
       db
         .prepare(
           `UPDATE q_quotes SET ${HEADER_FIELDS.map((f) => `${f} = ?`).join(", ")},
-             subtotal = ?, vat_amount = ?, total = ?, updated_at = datetime('now') WHERE id = ? AND superseded_by IS NULL AND ${own.sql}`,
+             subtotal = ?, vat_amount = ?, total = ?, updated_at = datetime('now'),
+             approval_status = CASE approval_status WHEN 'approved' THEN 'none' ELSE approval_status END
+           WHERE id = ? AND superseded_by IS NULL AND approval_status != 'pending' AND ${own.sql}`,
         )
         .bind(...HEADER_FIELDS.map((f) => h[f]), t.subtotal, t.vat_amount, t.total, id, ...own.args),
       db.prepare(`DELETE FROM q_lines WHERE quote_id = ? AND ${editable}`).bind(id, id, ...own.args),
@@ -373,7 +410,8 @@ export const quotesApi = new Hono<AppContext>()
       ...loadStatements(db, "?", [id], c.get("user")),
     ]);
     const q = assemble(res);
-    if (!res[0].meta.changes && q.superseded_by) throw bad("This revision has been superseded and is read-only. Open the latest revision.");
+    if (!res[1].meta.changes && q.superseded_by) throw bad("This revision has been superseded and is read-only. Open the latest revision.");
+    if (!res[1].meta.changes && q.approval_status === "pending") throw bad("This quotation is waiting for approval. Withdraw it to make changes.");
     return c.json(q);
   })
 
@@ -384,6 +422,7 @@ export const quotesApi = new Hono<AppContext>()
     if (!MANUAL_STATUSES.includes(status)) throw bad("Invalid status");
     const q = await getForWrite(c.env.DB, id, c.get("user"));
     if (q.superseded_by) throw bad("This revision has been superseded.");
+    if (status === "printed") await checkApproved(c.env.DB, q, "printed");
     await c.env.DB.prepare("UPDATE q_quotes SET status = ?, updated_at = datetime('now') WHERE id = ?").bind(status, id).run();
     return c.json(await loadQuote(c.env.DB, id, c.get("user")));
   })
@@ -536,10 +575,48 @@ export const quotesApi = new Hono<AppContext>()
     return c.json(await loadQuote(c.env.DB, id, c.get("user")));
   })
 
+  // ---- approval by an admin ----
+  .post("/:id/approval", async (c) => {
+    const id = intParam(c.req.param("id"));
+    const user = c.get("user");
+    const db = c.env.DB;
+    const q = await getForWrite(db, id, user);
+    const b = await body(c);
+    const action = String(b.action);
+    const note = str(b.note, 2000);
+    const rule = APPROVAL[action];
+    if (!rule) throw bad("Unknown approval action");
+    if (rule.admin && user.role !== "admin") throw new HttpError(403, "Only an admin can approve or return a quotation.");
+    if (q.superseded_by) throw bad("This revision has been superseded.");
+    if (q.status === "cancelled") throw bad("Re-open the cancelled quotation first.");
+    if (!rule.from.includes(String(q.approval_status))) throw bad(rule.wrongState);
+    if (action === "return" && !note) throw bad("Say what needs to change.");
+    if (action === "submit") {
+      const n = await db.prepare("SELECT COUNT(*) AS n FROM q_lines WHERE quote_id = ? AND kind = 'item'").bind(id).first<{ n: number }>();
+      if (!n?.n) throw bad("Add at least one line before sending for approval.");
+    }
+    const res = await db.batch([
+      // only if nobody changed it in the meantime
+      db
+        .prepare(
+          `UPDATE q_quotes SET approval_status = ?, approval_at = datetime('now'), approval_by = ?
+           WHERE id = ? AND approval_status IN (${rule.from.map(() => "?").join(", ")})`,
+        )
+        .bind(rule.to, user.id, id, ...rule.from),
+      db
+        .prepare(`INSERT INTO q_approval_log (quote_id, action, user_id, note) SELECT ?, ?, ?, ? WHERE changes() > 0`)
+        .bind(id, rule.log, user.id, note),
+      ...loadStatements(db, "?", [id], user),
+    ]);
+    if (!res[0].meta.changes) throw new HttpError(409, "Someone else changed this quotation's approval just now. Reload to see it.");
+    return c.json(assemble(res));
+  })
+
   // ---- email log ----
   .post("/:id/emails", async (c) => {
     const id = intParam(c.req.param("id"));
     const q = await getForWrite(c.env.DB, id, c.get("user"));
+    await checkApproved(c.env.DB, q, "emailed");
     const b = await body(c);
     const db = c.env.DB;
     await db.batch([

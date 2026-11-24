@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Anchor, Group, Paper, Progress, ScrollArea, SegmentedControl, SimpleGrid, Stack, Table, Text, ThemeIcon, Title } from "@mantine/core";
-import { IconCash, IconHourglass, IconTarget, IconTrophy } from "@tabler/icons-react";
+import { Alert, Anchor, Button, Group, Paper, Progress, ScrollArea, SegmentedControl, SimpleGrid, Stack, Table, Text, ThemeIcon, Title } from "@mantine/core";
+import { IconArrowBackUp, IconCash, IconChecklist, IconHourglass, IconTarget, IconTrophy } from "@tabler/icons-react";
+import { useApp } from "../../core/app-context";
 import { api } from "../../lib/api";
 import { money0, quoteNo, todayUAE } from "../../lib/format";
 import type { QuoteStatus } from "../../lib/types";
@@ -18,6 +19,7 @@ interface Summary {
   received: { orders: number; amount: number };
   followUp: { id: number; base_number: string; rev: number; quote_date: string; customer_name: string; subtotal: number; status: QuoteStatus; sales_rep_name: string | null }[];
   lostWhy: { name: string; amount: number; quotes: number }[];
+  approvals: { pending?: number; returned?: number };
 }
 
 function Bars({ rows }: { rows: { name: string; amount: number; quotes: number }[] }) {
@@ -61,6 +63,8 @@ const ago = (iso: string) => {
 export function QuotesHomeWidget() {
   const [days, setDays] = useState("28");
   const [s, setS] = useState<Summary | null>(null);
+  const { isAdmin } = useApp();
+  const plural = (n: number) => `${n} quotation${n === 1 ? "" : "s"}`;
   useEffect(() => {
     api.get<Summary>(`/quotes/summary?days=${days}`).then(setS);
   }, [days]);
@@ -77,6 +81,22 @@ export function QuotesHomeWidget() {
         <Title order={2}>Dashboard</Title>
         <SegmentedControl value={days} onChange={setDays} data={[{ value: "7", label: "7 Days" }, { value: "28", label: "4 Weeks" }, { value: "91", label: "3 Months" }, { value: "365", label: "12 Months" }]} />
       </Group>
+      {isAdmin && !!s?.approvals.pending && (
+        <Alert color="yellow" variant="light" icon={<IconChecklist size={20} />} p="md">
+          <Group justify="space-between" wrap="wrap" gap="sm">
+            <Text fw={600}>{plural(s.approvals.pending)} waiting for your approval</Text>
+            <Button component={Link} to="/quotes?status=approval:pending" size="xs" color="yellow.8">Review</Button>
+          </Group>
+        </Alert>
+      )}
+      {!isAdmin && !!s?.approvals.returned && (
+        <Alert color="orange" variant="light" icon={<IconArrowBackUp size={20} />} p="md">
+          <Group justify="space-between" wrap="wrap" gap="sm">
+            <Text fw={600}>{plural(s.approvals.returned)} returned with changes requested</Text>
+            <Button component={Link} to="/quotes?status=approval:returned" size="xs" color="orange">Open</Button>
+          </Group>
+        </Alert>
+      )}
       <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }}>
         <Kpi label="Quoted Value excl. VAT" value={`AED ${money0(s?.kpi.amount ?? 0)}`} sub={s ? `${s.kpi.quotes} quotation${s.kpi.quotes === 1 ? "" : "s"} · ${s.kpi.customers} customer${s.kpi.customers === 1 ? "" : "s"}` : undefined} icon={IconCash} />
         <Kpi label="Orders Received excl. VAT" value={`AED ${money0(s?.received.amount ?? 0)}`} sub={s ? `${s.received.orders} purchase order${s.received.orders === 1 ? "" : "s"}` : undefined} icon={IconTrophy} color="green.8" />
